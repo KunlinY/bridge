@@ -1,0 +1,726 @@
+{% extends 'base.html' %}
+
+{% block title %}Bridge - Comparison Mode{% endblock %}
+
+{% block page_title %}Bridge Comparison{% endblock %}
+{% block page_subtitle %}Compare AI responses with vs without prompt engineering{% endblock %}
+{% block new_session_text %}New Comparison{% endblock %}
+{% block new_session_button_text %}Start new comparison{% endblock %}
+{% block input_placeholder %}Type your message to compare responses...{% endblock %}
+
+{% block extra_css %}
+#comparisonChatColumns {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    width: 100%;
+}
+{% endblock %}
+
+{% block chat_area %}
+<div class="chat-container" id="chatContainer">
+    <!-- Comparison mode columns -->
+    <div id="comparisonChatColumns" class="chat-content">
+        <!-- Comparison mode indicator -->
+        <div class="comparison-indicator w-100 mb-3">
+            <i class="bi bi-lightning-charge-fill"></i>
+            <span>Comparison Mode: Side-by-side view of Bridge (with prompts) vs Baseline (raw model)</span>
+        </div>
+        
+        <div class="chat-columns-container">
+            <!-- Bridge (with prompt engineering) -->
+            <div class="chat-column">
+                <div class="chat-column-header">
+                    <i class="bi bi-bridge me-2"></i> Bridge (With Prompt Engineering)
+                </div>
+                <div class="chat-column-content" id="bridgeChatContent">
+                    <!-- Content will be loaded here -->
+                </div>
+            </div>
+            
+            <!-- Baseline (raw DeepSeek) -->
+            <div class="chat-column baseline-column">
+                <div class="chat-column-header">
+                    <i class="bi bi-code-slash me-2"></i> DeepSeek Baseline
+                </div>
+                <div class="chat-column-content" id="baselineChatContent">
+                    <!-- Content will be loaded here -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block action_buttons %}
+<button class="btn compare-btn" type="button" id="sendBtn">
+    <i class="bi bi-lightning me-1"></i> Compare Responses
+</button>
+{% endblock %}
+
+{% block page_js %}
+<script>
+    // Comparison chat specific functions
+    
+    // Create AI message with optional thinking (for comparison mode)
+    function createAIMessage(content, thinking = null, type = 'ai', isBaseline = false) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'message';
+        
+        const bubble = document.createElement('div');
+        bubble.className = `message-bubble ${isBaseline ? 'baseline-ai-bubble' : 'ai-bubble'}`;
+        
+        const header = document.createElement('div');
+        header.className = 'd-flex align-items-center mb-2';
+        header.innerHTML = `
+            <i class="bi ${isBaseline ? 'bi-cpu text-success' : 'bi-robot text-primary'} me-2"></i>
+            <strong>${isBaseline ? 'DeepSeek Baseline' : (type === 'system' ? 'Bridge' : 'Bridge Analysis')}</strong>
+        `;
+        bubble.appendChild(header);
+        
+        if (thinking && showThinking && type !== 'system' && !isBaseline) {
+            const thinkingId = 'thinking-' + Date.now();
+            
+            const thinkingContainer = document.createElement('div');
+            thinkingContainer.className = 'thinking-container mb-3';
+            thinkingContainer.innerHTML = `
+                <div class="thinking-header" onclick="toggleThinking('${thinkingId}')">
+                    <h6 class="mb-0">
+                        <i class="bi bi-lightbulb me-2"></i>
+                        AI Thinking Process
+                    </h6>
+                    <button class="btn btn-sm p-0 border-0 bg-transparent text-dark">
+                        <i class="bi bi-chevron-down"></i>
+                    </button>
+                </div>
+                <div class="thinking-content collapsed" id="${thinkingId}">
+                    ${thinking}
+                </div>
+            `;
+            bubble.appendChild(thinkingContainer);
+        }
+        
+        const contentDiv = document.createElement('div');
+        contentDiv.className = 'markdown-content streaming-text';
+        contentDiv.innerHTML = content;
+        bubble.appendChild(contentDiv);
+        
+        messageDiv.appendChild(bubble);
+        return messageDiv;
+    }
+
+    // Initialize comparison columns with placeholder content
+    function initializeComparisonColumns() {
+        const bridgeContent = document.getElementById('bridgeChatContent');
+        const baselineContent = document.getElementById('baselineChatContent');
+        
+        if (bridgeContent && bridgeContent.children.length === 0) {
+            bridgeContent.innerHTML = `
+                <div class="text-center text-muted mt-5">
+                    <i class="bi bi-robot display-6 mb-3 d-block text-primary"></i>
+                    <p>Enhanced with research-based prompts</p>
+                    <small class="d-block">Uses our 3 hypotheses to improve communication</small>
+                </div>
+            `;
+        }
+        
+        if (baselineContent && baselineContent.children.length === 0) {
+            baselineContent.innerHTML = `
+                <div class="text-center text-muted mt-5">
+                    <i class="bi bi-cpu display-6 mb-3 d-block text-success"></i>
+                    <p>Raw model without prompt engineering</p>
+                    <small class="d-block">Standard DeepSeek response for comparison</small>
+                </div>
+            `;
+        }
+    }
+
+    // Clear comparison columns
+    function clearComparisonColumns() {
+        const bridgeContent = document.getElementById('bridgeChatContent');
+        const baselineContent = document.getElementById('baselineChatContent');
+        
+        if (bridgeContent) bridgeContent.innerHTML = '';
+        if (baselineContent) baselineContent.innerHTML = '';
+    }
+
+    // Clear chat display (for comparison)
+    function clearChatDisplay() {
+        clearComparisonColumns();
+    }
+
+    // Add welcome message (for comparison)
+    function addWelcomeMessage() {
+        initializeComparisonColumns();
+    }
+
+    // Create streaming message container for comparison mode
+    function createComparisonStreamingContainer(messageId, isBaseline = false) {
+        const columnId = isBaseline ? 'baselineChatContent' : 'bridgeChatContent';
+        const column = document.getElementById(columnId);
+        
+        // Clear initial placeholder if present
+        if (column && column.children.length === 1 && column.children[0].classList.contains('text-center')) {
+            column.innerHTML = '';
+        }
+        
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'message';
+        messageDiv.id = messageId;
+        
+        const bubble = document.createElement('div');
+        bubble.className = `message-bubble ${isBaseline ? 'baseline-ai-bubble' : 'ai-bubble'}`;
+        
+        const header = document.createElement('div');
+        header.className = 'd-flex align-items-center mb-2';
+        header.innerHTML = `
+            <i class="bi ${isBaseline ? 'bi-cpu text-success' : 'bi-robot text-primary'} me-2"></i>
+            <strong>${isBaseline ? 'DeepSeek Baseline' : 'Bridge Analysis'}</strong>
+            <span class="status-badge status-thinking">Thinking</span>
+        `;
+        bubble.appendChild(header);
+        
+        if (!isBaseline && showThinking) {
+            const thinkingContainer = document.createElement('div');
+            thinkingContainer.id = `${messageId}-thinking`;
+            thinkingContainer.className = 'thinking-container mb-3';
+            thinkingContainer.innerHTML = `
+                <div class="thinking-header" onclick="toggleThinking('${messageId}-thinking-content')">
+                    <h6 class="mb-0">
+                        <i class="bi bi-lightbulb me-2"></i>
+                        AI Thinking Process
+                        <span class="badge bg-warning badge-sm ms-2" id="thinking-badge-${messageId}">Live</span>
+                    </h6>
+                    <button class="collapse-btn">
+                        <i class="bi bi-chevron-up"></i> Hide
+                    </button>
+                </div>
+                <div class="thinking-content collapsed streaming-text" id="${messageId}-thinking-content">
+                    <!-- Thinking content will stream here -->
+                </div>
+            `;
+            bubble.appendChild(thinkingContainer);
+        }
+        
+        const contentContainer = document.createElement('div');
+        contentContainer.id = `${messageId}-content`;
+        contentContainer.className = 'markdown-content streaming-text streaming-cursor';
+        contentContainer.textContent = isBaseline ? 'Generating baseline response...' : 'Starting analysis...';
+        bubble.appendChild(contentContainer);
+        
+        messageDiv.appendChild(bubble);
+        if (column) {
+            column.appendChild(messageDiv);
+        }
+        
+        return { messageDiv, messageId };
+    }
+
+    // Create a new session (always comparison)
+    async function createNewSession() {
+        try {
+            const response = await fetch('/sessions/create/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrftoken
+                },
+                body: JSON.stringify({
+                    mode: currentMode,
+                    session_key: getSessionKey(),
+                    is_comparison: true
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                currentSessionId = data.session.id;
+                
+                // Clear chat columns
+                clearComparisonColumns();
+                initializeComparisonColumns();
+                
+                await loadSessions();
+                
+                return true;
+            }
+            return false;
+        } catch (error) {
+            console.error('Error creating session:', error);
+            alert('Failed to create new session. Please try again.');
+            return false;
+        }
+    }
+
+    // Load comparison messages
+    async function loadComparisonMessages(sessionId, messages) {
+        try {
+            // Get comparison messages
+            const response = await fetch(`/sessions/comparison_messages/?session_id=${sessionId}&session_key=${getSessionKey()}`);
+            const data = await response.json();
+            
+            if (data.success) {
+                const bridgeContent = document.getElementById('bridgeChatContent');
+                const baselineContent = document.getElementById('baselineChatContent');
+                
+                // Clear columns
+                bridgeContent.innerHTML = '';
+                baselineContent.innerHTML = '';
+                
+                // Group messages by user message ID
+                const messageGroups = {};
+                
+                // First, get all user messages
+                if (messages && messages.length > 0) {
+                    messages.forEach(msg => {
+                        if (msg.role === 'user') {
+                            messageGroups[msg.id] = {
+                                user: msg,
+                                bridge: null,
+                                baseline: null
+                            };
+                        }
+                    });
+                }
+                
+                // Then add bridge and baseline responses
+                if (data.comparison_messages && data.comparison_messages.length > 0) {
+                    data.comparison_messages.forEach(msg => {
+                        if (msg.role === 'assistant' && msg.message_type === 'bridge' && msg.user_message_id) {
+                            if (messageGroups[msg.user_message_id]) {
+                                messageGroups[msg.user_message_id].bridge = msg;
+                            }
+                        } else if (msg.role === 'assistant' && msg.message_type === 'baseline' && msg.user_message_id) {
+                            if (messageGroups[msg.user_message_id]) {
+                                messageGroups[msg.user_message_id].baseline = msg;
+                            }
+                        }
+                    });
+                }
+                
+                // Display each message group
+                const messageGroupsArray = Object.values(messageGroups);
+                if (messageGroupsArray.length > 0) {
+                    messageGroupsArray.forEach(group => {
+                        if (group.user) {
+                            // Add user message to both columns
+                            const userMsg = createUserMessage(group.user.content);
+                            bridgeContent.appendChild(userMsg.cloneNode(true));
+                            baselineContent.appendChild(userMsg.cloneNode(true));
+                            
+                            // Add bridge response if exists
+                            if (group.bridge) {
+                                const bridgeMsg = createAIMessage(
+                                    marked.parse(group.bridge.content),
+                                    group.bridge.thinking ? marked.parse(group.bridge.thinking) : null,
+                                    'ai',
+                                    false
+                                );
+                                bridgeContent.appendChild(bridgeMsg);
+                            }
+                            
+                            // Add baseline response if exists
+                            if (group.baseline) {
+                                const baselineMsg = createAIMessage(
+                                    marked.parse(group.baseline.content),
+                                    null,
+                                    'ai',
+                                    true
+                                );
+                                baselineContent.appendChild(baselineMsg);
+                            }
+                        }
+                    });
+                } else {
+                    // No messages, show placeholder
+                    initializeComparisonColumns();
+                }
+                
+                scrollToBottom();
+            }
+        } catch (error) {
+            console.error('Error loading comparison messages:', error);
+            alert('Failed to load comparison messages.');
+        }
+    }
+
+    // Load a specific session (for comparison)
+    async function loadSession(sessionId) {
+        try {
+            const response = await fetch(`/sessions/messages/?session_id=${sessionId}&session_key=${getSessionKey()}`);
+            const data = await response.json();
+            
+            if (data.success) {
+                currentSessionId = sessionId;
+                
+                // Update mode if needed
+                if (data.session.mode !== currentMode) {
+                    currentMode = data.session.mode;
+                    updateModeUI();
+                    return;
+                }
+                
+                // Clear comparison columns
+                clearComparisonColumns();
+                
+                // Load comparison messages
+                await loadComparisonMessages(sessionId, data.messages);
+                
+                scrollToBottom();
+                renderSessionsList();
+            } else {
+                console.error('Failed to load session:', data.error);
+            }
+        } catch (error) {
+            console.error('Error loading session:', error);
+            alert('Failed to load session. Please try again.');
+        }
+    }
+
+    // Send message - always comparison mode
+    async function sendMessage() {
+        const input = document.getElementById('messageInput');
+        const message = input.value.trim();
+        
+        if (!message) {
+            return;
+        }
+        
+        if (isStreaming) {
+            alert('Please wait for the current response to complete.');
+            return;
+        }
+        
+        // Clear input
+        input.value = '';
+        
+        // If no session exists, create one
+        if (!currentSessionId) {
+            const created = await createNewSession();
+            if (!created) {
+                alert('Failed to create session. Please try again.');
+                return;
+            }
+        }
+        
+        // Clear initial placeholder if present
+        const bridgeContent = document.getElementById('bridgeChatContent');
+        const baselineContent = document.getElementById('baselineChatContent');
+        
+        if (bridgeContent && bridgeContent.children.length === 1 && bridgeContent.children[0].classList.contains('text-center')) {
+            bridgeContent.innerHTML = '';
+        }
+        if (baselineContent && baselineContent.children.length === 1 && baselineContent.children[0].classList.contains('text-center')) {
+            baselineContent.innerHTML = '';
+        }
+        
+        // Collapse header on first message
+        if (!hasMessages) {
+            collapseHeader();
+            hasMessages = true;
+        }
+        
+        // Add user message to both columns
+        const userMessage = createUserMessage(message);
+        if (bridgeContent) bridgeContent.appendChild(userMessage.cloneNode(true));
+        if (baselineContent) baselineContent.appendChild(userMessage.cloneNode(true));
+        
+        scrollToBottom();
+        
+        // Send comparison messages
+        await sendComparisonMessages(message);
+    }
+
+    // Send messages in comparison mode
+    async function sendComparisonMessages(message) {
+        isStreaming = true;
+        
+        try {
+            // Get the last user message ID
+            const userMessageId = await getLastUserMessageId(currentSessionId);
+            
+            // Create streaming containers for both responses
+            const bridgeMessageId = `bridge-msg-${Date.now()}`;
+            const baselineMessageId = `baseline-msg-${Date.now()}`;
+            
+            createComparisonStreamingContainer(bridgeMessageId, false);
+            createComparisonStreamingContainer(baselineMessageId, true);
+            
+            scrollToBottom();
+            
+            // Send both requests in parallel
+            await Promise.all([
+                processBridgeStream(message, bridgeMessageId, currentSessionId, true, userMessageId),
+                processBaselineStream(message, baselineMessageId, currentSessionId, userMessageId)
+            ]);
+            
+        } catch (error) {
+            console.error('Comparison mode error:', error);
+            alert('Error in comparison mode. Please try again.');
+        } finally {
+            isStreaming = false;
+        }
+    }
+
+    // Get the last user message ID
+    async function getLastUserMessageId(sessionId) {
+        try {
+            const response = await fetch(`/sessions/last_user_message/?session_id=${sessionId}&session_key=${getSessionKey()}`);
+            const data = await response.json();
+            return data.success ? data.message_id : null;
+        } catch (error) {
+            console.error('Error getting last user message:', error);
+            return null;
+        }
+    }
+
+    // Process Bridge stream (with prompt engineering) for comparison
+    async function processBridgeStream(message, messageId, sessionId = null, isComparison = false, userMessageId = null) {
+        const thinkingContainer = document.getElementById(`${messageId}-thinking-content`);
+        const contentContainer = document.getElementById(`${messageId}-content`);
+        const statusBadge = document.getElementById(messageId)?.querySelector('.status-badge');
+        
+        if (statusBadge) {
+            statusBadge.className = 'status-badge status-thinking';
+            statusBadge.textContent = 'Thinking';
+        }
+        
+        try {
+            const response = await fetch('/chat/stream/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrftoken
+                },
+                body: JSON.stringify({
+                    message: message,
+                    mode: currentMode,
+                    session_id: sessionId,
+                    session_key: getSessionKey(),
+                    show_thinking: showThinking,
+                    is_comparison: true,
+                    user_message_id: userMessageId
+                })
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            await processStreamResponse(response, messageId, thinkingContainer, contentContainer, statusBadge, false);
+            
+        } catch (error) {
+            console.error('Bridge stream error:', error);
+            if (statusBadge) {
+                statusBadge.className = 'status-badge status-error';
+                statusBadge.textContent = 'Error';
+            }
+            if (contentContainer) {
+                contentContainer.innerHTML = `<div class="alert alert-danger p-2 mb-0">Error: ${error.message}</div>`;
+                contentContainer.classList.remove('streaming-cursor');
+            }
+        }
+    }
+
+    // Process Baseline stream (without prompt engineering)
+    async function processBaselineStream(message, messageId, sessionId = null, userMessageId = null) {
+        const contentContainer = document.getElementById(`${messageId}-content`);
+        const statusBadge = document.getElementById(messageId)?.querySelector('.status-badge');
+        
+        if (statusBadge) {
+            statusBadge.className = 'status-badge status-thinking';
+            statusBadge.textContent = 'Thinking';
+        }
+        
+        try {
+            const response = await fetch('/chat/baseline_stream/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrftoken
+                },
+                body: JSON.stringify({
+                    message: message,
+                    mode: currentMode,
+                    session_id: sessionId,
+                    session_key: getSessionKey(),
+                    user_message_id: userMessageId
+                })
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            await processStreamResponse(response, messageId, null, contentContainer, statusBadge, true);
+            
+        } catch (error) {
+            console.error('Baseline stream error:', error);
+            if (statusBadge) {
+                statusBadge.className = 'status-badge status-error';
+                statusBadge.textContent = 'Error';
+            }
+            if (contentContainer) {
+                contentContainer.innerHTML = `<div class="alert alert-danger p-2 mb-0">Error: ${error.message}</div>`;
+                contentContainer.classList.remove('streaming-cursor');
+            }
+        }
+    }
+
+    // Generic stream response processor for comparison
+    async function processStreamResponse(response, messageId, thinkingContainer, contentContainer, statusBadge, isBaseline = false) {
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        
+        let buffer = '';
+        let thinkingText = '';
+        let responseText = '';
+        
+        try {
+            while (true) {
+                const { done, value } = await reader.read();
+                
+                if (done) {
+                    break;
+                }
+                
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop() || '';
+                
+                for (const line of lines) {
+                    if (line.startsWith('data: ')) {
+                        const dataStr = line.slice(6);
+                        
+                        if (dataStr === '[DONE]') {
+                            continue;
+                        }
+                        
+                        try {
+                            const data = JSON.parse(dataStr);
+                            
+                            switch (data.event) {
+                                case 'status':
+                                    if (statusBadge) {
+                                        if (data.status === 'thinking') {
+                                            statusBadge.className = 'status-badge status-thinking';
+                                            statusBadge.textContent = 'Thinking';
+                                        } else if (data.status === 'responding') {
+                                            statusBadge.className = 'status-badge status-responding';
+                                            statusBadge.textContent = 'Responding';
+                                        } else if (data.status === 'complete') {
+                                            statusBadge.className = 'status-badge status-complete';
+                                            statusBadge.textContent = 'Complete';
+                                        }
+                                    }
+                                    break;
+                                    
+                                case 'chunk':
+                                    if (data.type === 'thinking' && thinkingContainer && !isBaseline) {
+                                        thinkingText += data.content || '';
+                                        if (thinkingContainer) {
+                                            thinkingContainer.innerHTML = marked.parse(thinkingText);
+                                            if (!thinkingContainer.classList.contains('collapsed')) {
+                                                thinkingContainer.scrollTop = thinkingContainer.scrollHeight;
+                                            }
+                                        }
+                                    } else if (data.type === 'content') {
+                                        responseText += data.content || '';
+                                        if (contentContainer) {
+                                            contentContainer.innerHTML = marked.parse(responseText);
+                                            contentContainer.classList.remove('streaming-cursor');
+                                            
+                                            if (statusBadge && statusBadge.textContent !== 'Responding') {
+                                                statusBadge.className = 'status-badge status-responding';
+                                                statusBadge.textContent = 'Responding';
+                                            }
+                                        }
+                                    }
+                                    break;
+                                    
+                                case 'complete_thinking':
+                                    if (!isBaseline) {
+                                        thinkingText = data.content || thinkingText;
+                                        if (thinkingContainer) {
+                                            thinkingContainer.innerHTML = marked.parse(thinkingText);
+                                        }
+                                    }
+                                    break;
+                                    
+                                case 'complete_response':
+                                    responseText = data.content || responseText;
+                                    if (contentContainer) {
+                                        contentContainer.innerHTML = marked.parse(responseText);
+                                        contentContainer.classList.remove('streaming-cursor');
+                                    }
+                                    break;
+                                    
+                                case 'done':
+                                    if (statusBadge) {
+                                        statusBadge.className = 'status-badge status-complete';
+                                        statusBadge.textContent = 'Complete';
+                                    }
+                                    
+                                    // Update sessions after streaming is complete
+                                    setTimeout(() => {
+                                        loadSessions();
+                                    }, 500);
+                                    break;
+                                    
+                                case 'error':
+                                    throw new Error(data.error || 'Stream error');
+                            }
+                        } catch (parseError) {
+                            console.warn('Failed to parse SSE data:', parseError, 'Data:', dataStr);
+                        }
+                    }
+                }
+                
+                scrollToBottom();
+            }
+        } finally {
+            scrollToBottom();
+        }
+    }
+</script>
+{% endblock %}
+
+{% block page_init %}
+// Initialize comparison columns
+initializeComparisonColumns();
+
+// Set up comparison specific event listeners
+document.getElementById('sendBtn').addEventListener('click', () => sendMessage());
+
+// Enter key in input
+document.getElementById('messageInput').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+    }
+});
+
+// Load only comparison sessions for this mode
+async function loadSessions() {
+    try {
+        const response = await fetch(`/sessions/?session_key=${getSessionKey()}&mode=${currentMode}&is_comparison=true`);
+        const data = await response.json();
+        
+        if (data.success) {
+            sessions[currentMode] = data.sessions;
+            renderSessionsList();
+            
+            // If we have a current session for this mode, load it
+            if (currentSessionId && data.sessions.some(s => s.id === currentSessionId)) {
+                // Already loaded
+            } else if (data.sessions.length > 0) {
+                // Load the most recent session for this mode
+                await loadSession(data.sessions[0].id);
+            }
+        }
+    } catch (error) {
+        console.error('Error loading sessions:', error);
+    }
+}
+{% endblock %}

@@ -1,0 +1,515 @@
+{% extends 'base.html' %}
+
+{% block title %}Bridge - Mental Health Communication Assistant{% endblock %}
+
+{% block page_title %}Bridge{% endblock %}
+{% block page_subtitle %}Mental Health Communication Assistant for Gen Z & Families{% endblock %}
+{% block new_session_text %}New Chat{% endblock %}
+{% block new_session_button_text %}Start a new conversation{% endblock %}
+{% block input_placeholder %}Type your message here...{% endblock %}
+
+{% block extra_css %}
+#singleChatColumn {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+{% endblock %}
+
+{% block chat_area %}
+<div class="chat-container" id="chatContainer">
+    <!-- Single chat view -->
+    <div id="singleChatColumn" class="chat-content">
+        <!-- Messages will appear here -->
+        <div class="text-center text-muted mt-5" id="initialMessage">
+            <i class="bi bi-chat-dots display-6 mb-3 d-block"></i>
+            <!-- Welcome message will be added by JavaScript -->
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block action_buttons %}
+<button class="btn send-btn" type="button" id="sendBtn">
+    <i class="bi bi-send me-1"></i> Send
+</button>
+{% endblock %}
+
+{% block page_js %}
+<script>
+    // Single chat specific functions
+    
+    // Create AI message with optional thinking
+    function createAIMessage(content, thinking = null, type = 'ai') {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'message';
+        
+        const bubble = document.createElement('div');
+        bubble.className = 'message-bubble ai-bubble';
+        
+        const header = document.createElement('div');
+        header.className = 'd-flex align-items-center mb-2';
+        header.innerHTML = `
+            <i class="bi bi-robot text-primary me-2"></i>
+            <strong>${type === 'system' ? 'Bridge' : 'Bridge Analysis'}</strong>
+        `;
+        bubble.appendChild(header);
+        
+        if (thinking && showThinking && type !== 'system') {
+            const thinkingId = 'thinking-' + Date.now();
+            
+            const thinkingContainer = document.createElement('div');
+            thinkingContainer.className = 'thinking-container mb-3';
+            thinkingContainer.innerHTML = `
+                <div class="thinking-header" onclick="toggleThinking('${thinkingId}')">
+                    <h6 class="mb-0">
+                        <i class="bi bi-lightbulb me-2"></i>
+                        AI Thinking Process
+                    </h6>
+                    <button class="btn btn-sm p-0 border-0 bg-transparent text-dark">
+                        <i class="bi bi-chevron-down"></i>
+                    </button>
+                </div>
+                <div class="thinking-content collapsed" id="${thinkingId}">
+                    ${thinking}
+                </div>
+            `;
+            bubble.appendChild(thinkingContainer);
+        }
+        
+        const contentDiv = document.createElement('div');
+        contentDiv.className = 'markdown-content streaming-text';
+        contentDiv.innerHTML = content;
+        bubble.appendChild(contentDiv);
+        
+        messageDiv.appendChild(bubble);
+        return messageDiv;
+    }
+
+    // Create streaming message container for single chat
+    function createStreamingContainer() {
+        const messageId = 'msg-' + Date.now();
+        
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'message';
+        messageDiv.id = messageId;
+        
+        const bubble = document.createElement('div');
+        bubble.className = 'message-bubble ai-bubble';
+        
+        const header = document.createElement('div');
+        header.className = 'd-flex align-items-center mb-2';
+        header.innerHTML = `
+            <i class="bi bi-robot text-primary me-2"></i>
+            <strong>Bridge Analysis</strong>
+            <span class="status-badge status-thinking">Thinking</span>
+        `;
+        bubble.appendChild(header);
+        
+        if (showThinking) {
+            const thinkingContainer = document.createElement('div');
+            thinkingContainer.id = `${messageId}-thinking`;
+            thinkingContainer.className = 'thinking-container mb-3';
+            thinkingContainer.innerHTML = `
+                <div class="thinking-header" onclick="toggleThinking('${messageId}-thinking-content')">
+                    <h6 class="mb-0">
+                        <i class="bi bi-lightbulb me-2"></i>
+                        AI Thinking Process
+                        <span class="badge bg-warning badge-sm ms-2" id="thinking-badge-${messageId}">Live</span>
+                    </h6>
+                    <button class="collapse-btn">
+                        <i class="bi bi-chevron-up"></i> Hide
+                    </button>
+                </div>
+                <div class="thinking-content collapsed streaming-text" id="${messageId}-thinking-content">
+                    <!-- Thinking content will stream here -->
+                </div>
+            `;
+            bubble.appendChild(thinkingContainer);
+        }
+        
+        const contentContainer = document.createElement('div');
+        contentContainer.id = `${messageId}-content`;
+        contentContainer.className = 'markdown-content streaming-text streaming-cursor';
+        contentContainer.textContent = 'Starting analysis...';
+        bubble.appendChild(contentContainer);
+        
+        messageDiv.appendChild(bubble);
+        return { messageDiv, messageId };
+    }
+
+    // Add welcome message
+    function addWelcomeMessage() {
+        const welcomeText = currentMode === 'genz' 
+            ? "**Welcome to Bridge!**\n\nI'm here to help translate your feelings into terms that parents and older generations can understand.\n\n**Based on our research:**\n- GenZ uses 85% more first-person pronouns\n- Authenticity markers are highest during identity exploration\n- Existential concerns dominate GenZ mental health discourse\n\n**Try an example above or type your own message!**"
+            : "**Welcome to Bridge!**\n\nI'm here to help you understand your teen's mental health language and communicate more effectively.\n\n**Research insights:**\n- Non-GenZ prefers practical solutions (70% more than emotional validation)\n- Generational communication gaps are systematic\n- Small phrasing adjustments can dramatically improve reception\n\n**Try an example above or type your own message!**";
+        
+        const aiMessage = createAIMessage(marked.parse(welcomeText), null, 'system');
+        document.getElementById('singleChatColumn').appendChild(aiMessage);
+        scrollToBottom();
+    }
+
+    // Clear chat display
+    function clearChatDisplay() {
+        const singleColumn = document.getElementById('singleChatColumn');
+        if (singleColumn) {
+            singleColumn.innerHTML = '';
+            const initialMsg = document.createElement('div');
+            initialMsg.className = 'text-center text-muted mt-5';
+            initialMsg.id = 'initialMessage';
+            initialMsg.style.display = 'none';
+            singleColumn.appendChild(initialMsg);
+        }
+    }
+
+    function hideInitialMessage() {
+        const initialMsg = document.getElementById('initialMessage');
+        if (initialMsg) {
+            initialMsg.style.display = 'none';
+        }
+    }
+
+    // Create a new session
+    async function createNewSession() {
+        try {
+            const response = await fetch('/sessions/create/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrftoken
+                },
+                body: JSON.stringify({
+                    mode: currentMode,
+                    session_key: getSessionKey(),
+                    is_comparison: false
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                currentSessionId = data.session.id;
+                
+                // Expand header for new session
+                expandHeader();
+                hasMessages = false;
+                
+                await loadSessions();
+                
+                // Show welcome message
+                addWelcomeMessage();
+                
+                return true;
+            }
+            return false;
+        } catch (error) {
+            console.error('Error creating session:', error);
+            alert('Failed to create new session. Please try again.');
+            return false;
+        }
+    }
+
+    // Load a specific session
+    async function loadSession(sessionId) {
+        try {
+            const response = await fetch(`/sessions/messages/?session_id=${sessionId}&session_key=${getSessionKey()}`);
+            const data = await response.json();
+            
+            if (data.success) {
+                currentSessionId = sessionId;
+                
+                // Update mode if needed
+                if (data.session.mode !== currentMode) {
+                    currentMode = data.session.mode;
+                    updateModeUI();
+                    return;
+                }
+                
+                // Clear chat display
+                clearChatDisplay();
+                hideInitialMessage();
+                
+                // Load normal messages into single chat column
+                const singleChatColumn = document.getElementById('singleChatColumn');
+                singleChatColumn.innerHTML = '';
+                
+                if (data.messages && data.messages.length > 0) {
+                    data.messages.forEach(msg => {
+                        if (msg.role === 'user') {
+                            const userMsg = createUserMessage(msg.content);
+                            singleChatColumn.appendChild(userMsg);
+                        } else if (msg.role === 'assistant') {
+                            const aiMsg = createAIMessage(
+                                marked.parse(msg.content),
+                                msg.thinking ? marked.parse(msg.thinking) : null,
+                                'ai'
+                            );
+                            singleChatColumn.appendChild(aiMsg);
+                        }
+                    });
+                } else {
+                    // Show welcome message if no messages
+                    addWelcomeMessage();
+                }
+                
+                // Set header state based on whether there are messages
+                if (data.messages && data.messages.length > 0) {
+                    collapseHeader();
+                    hasMessages = true;
+                } else {
+                    expandHeader();
+                    hasMessages = false;
+                }
+                
+                scrollToBottom();
+                renderSessionsList();
+            } else {
+                console.error('Failed to load session:', data.error);
+            }
+        } catch (error) {
+            console.error('Error loading session:', error);
+            alert('Failed to load session. Please try again.');
+        }
+    }
+
+    // Send message
+    async function sendMessage() {
+        const input = document.getElementById('messageInput');
+        const message = input.value.trim();
+        
+        if (!message) {
+            return;
+        }
+        
+        if (isStreaming) {
+            alert('Please wait for the current response to complete.');
+            return;
+        }
+        
+        // Clear input
+        input.value = '';
+        
+        // Hide initial message if visible
+        hideInitialMessage();
+        
+        // If no session exists, create one
+        if (!currentSessionId) {
+            const created = await createNewSession();
+            if (!created) {
+                alert('Failed to create session. Please try again.');
+                return;
+            }
+        }
+        
+        // Collapse header on first message
+        if (!hasMessages) {
+            collapseHeader();
+            hasMessages = true;
+        }
+        
+        // Add user message to single chat
+        const userMessage = createUserMessage(message);
+        document.getElementById('singleChatColumn').appendChild(userMessage);
+        
+        scrollToBottom();
+        
+        // Send message
+        await sendSingleMessage(message);
+    }
+
+    // Send message in single chat mode
+    async function sendSingleMessage(message) {
+        isStreaming = true;
+        
+        try {
+            const { messageDiv, messageId } = createStreamingContainer();
+            document.getElementById('singleChatColumn').appendChild(messageDiv);
+            scrollToBottom();
+            
+            await processBridgeStream(message, messageId, currentSessionId);
+        } catch (error) {
+            console.error('Single message error:', error);
+            alert('Error sending message. Please try again.');
+        } finally {
+            isStreaming = false;
+        }
+    }
+
+    // Process Bridge stream (with prompt engineering)
+    async function processBridgeStream(message, messageId, sessionId = null) {
+        const thinkingContainer = document.getElementById(`${messageId}-thinking-content`);
+        const contentContainer = document.getElementById(`${messageId}-content`);
+        const statusBadge = document.getElementById(messageId)?.querySelector('.status-badge');
+        
+        if (statusBadge) {
+            statusBadge.className = 'status-badge status-thinking';
+            statusBadge.textContent = 'Thinking';
+        }
+        
+        try {
+            const response = await fetch('/chat/stream/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrftoken
+                },
+                body: JSON.stringify({
+                    message: message,
+                    mode: currentMode,
+                    session_id: sessionId,
+                    session_key: getSessionKey(),
+                    show_thinking: showThinking,
+                    is_comparison: false
+                })
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            await processStreamResponse(response, messageId, thinkingContainer, contentContainer, statusBadge);
+            
+        } catch (error) {
+            console.error('Bridge stream error:', error);
+            if (statusBadge) {
+                statusBadge.className = 'status-badge status-error';
+                statusBadge.textContent = 'Error';
+            }
+            if (contentContainer) {
+                contentContainer.innerHTML = `<div class="alert alert-danger p-2 mb-0">Error: ${error.message}</div>`;
+                contentContainer.classList.remove('streaming-cursor');
+            }
+        }
+    }
+
+    // Generic stream response processor
+    async function processStreamResponse(response, messageId, thinkingContainer, contentContainer, statusBadge) {
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        
+        let buffer = '';
+        let thinkingText = '';
+        let responseText = '';
+        
+        try {
+            while (true) {
+                const { done, value } = await reader.read();
+                
+                if (done) {
+                    break;
+                }
+                
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop() || '';
+                
+                for (const line of lines) {
+                    if (line.startsWith('data: ')) {
+                        const dataStr = line.slice(6);
+                        
+                        if (dataStr === '[DONE]') {
+                            continue;
+                        }
+                        
+                        try {
+                            const data = JSON.parse(dataStr);
+                            
+                            switch (data.event) {
+                                case 'status':
+                                    if (statusBadge) {
+                                        if (data.status === 'thinking') {
+                                            statusBadge.className = 'status-badge status-thinking';
+                                            statusBadge.textContent = 'Thinking';
+                                        } else if (data.status === 'responding') {
+                                            statusBadge.className = 'status-badge status-responding';
+                                            statusBadge.textContent = 'Responding';
+                                        } else if (data.status === 'complete') {
+                                            statusBadge.className = 'status-badge status-complete';
+                                            statusBadge.textContent = 'Complete';
+                                        }
+                                    }
+                                    break;
+                                    
+                                case 'chunk':
+                                    if (data.type === 'thinking' && thinkingContainer) {
+                                        thinkingText += data.content || '';
+                                        if (thinkingContainer) {
+                                            thinkingContainer.innerHTML = marked.parse(thinkingText);
+                                            if (!thinkingContainer.classList.contains('collapsed')) {
+                                                thinkingContainer.scrollTop = thinkingContainer.scrollHeight;
+                                            }
+                                        }
+                                    } else if (data.type === 'content') {
+                                        responseText += data.content || '';
+                                        if (contentContainer) {
+                                            contentContainer.innerHTML = marked.parse(responseText);
+                                            contentContainer.classList.remove('streaming-cursor');
+                                            
+                                            if (statusBadge && statusBadge.textContent !== 'Responding') {
+                                                statusBadge.className = 'status-badge status-responding';
+                                                statusBadge.textContent = 'Responding';
+                                            }
+                                        }
+                                    }
+                                    break;
+                                    
+                                case 'complete_thinking':
+                                    thinkingText = data.content || thinkingText;
+                                    if (thinkingContainer) {
+                                        thinkingContainer.innerHTML = marked.parse(thinkingText);
+                                    }
+                                    break;
+                                    
+                                case 'complete_response':
+                                    responseText = data.content || responseText;
+                                    if (contentContainer) {
+                                        contentContainer.innerHTML = marked.parse(responseText);
+                                        contentContainer.classList.remove('streaming-cursor');
+                                    }
+                                    break;
+                                    
+                                case 'done':
+                                    if (statusBadge) {
+                                        statusBadge.className = 'status-badge status-complete';
+                                        statusBadge.textContent = 'Complete';
+                                    }
+                                    
+                                    // Update sessions after streaming is complete
+                                    setTimeout(() => {
+                                        loadSessions();
+                                    }, 500);
+                                    break;
+                                    
+                                case 'error':
+                                    throw new Error(data.error || 'Stream error');
+                            }
+                        } catch (parseError) {
+                            console.warn('Failed to parse SSE data:', parseError, 'Data:', dataStr);
+                        }
+                    }
+                }
+                
+                scrollToBottom();
+            }
+        } finally {
+            scrollToBottom();
+        }
+    }
+</script>
+{% endblock %}
+
+{% block page_init %}
+// Add welcome message for new users
+addWelcomeMessage();
+
+// Set up single chat specific event listeners
+document.getElementById('sendBtn').addEventListener('click', () => sendMessage());
+
+// Enter key in input
+document.getElementById('messageInput').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+    }
+});
+{% endblock %}

@@ -1,0 +1,1622 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Bridge - Mental Health Communication Assistant{% endblock %}</title>
+    {% load static %}
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <!-- Markdown Renderer -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        :root {
+            --genz-purple: #8A2BE2;
+            --genz-pink: #FF6B9D;
+            --genz-blue: #00D4FF;
+            --parent-teal: #20B2AA;
+            --parent-orange: #FFA500;
+            --thinking-bg: #fff8e1;
+            --thinking-border: #ffd54f;
+            --sidebar-bg: #f8f9fa;
+            --sidebar-width: 300px;
+            --comparison-border: #4CAF50;
+            --comparison-bg: #f1f8e9;
+        }
+        
+        /* Prevent full page scrolling */
+        html, body {
+            height: 100%;
+            overflow: hidden;
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+        }
+        
+        .app-container {
+            display: flex;
+            height: 100vh;
+            padding: 1rem;
+            box-sizing: border-box;
+            overflow: hidden;
+        }
+        
+        /* Sidebar Styles */
+        .sidebar {
+            width: var(--sidebar-width);
+            background: var(--sidebar-bg);
+            border-radius: 15px;
+            margin-right: 1rem;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+            overflow: hidden;
+        }
+        
+        .sidebar-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid #e9ecef;
+            flex-shrink: 0;
+        }
+        
+        .sidebar-content {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding: 1rem;
+        }
+        
+        /* Main Content Styles */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+            overflow: hidden;
+        }
+        
+        .main-container {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            height: 100%;
+        }
+        
+        /* Header Styles with Expand/Collapse States */
+        .header {
+            background: linear-gradient(135deg, var(--genz-purple), var(--genz-blue));
+            color: white;
+            padding: 1.5rem;
+            text-align: center;
+            flex-shrink: 0;
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .header.expanded {
+            padding: 1.5rem;
+        }
+
+        .header.collapsed {
+            padding: 0.75rem 1.5rem;
+            min-height: 70px;
+        }
+
+        /* Header Content Container */
+        .header-content {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            width: 100%;
+        }
+
+        .header.expanded .header-content {
+            align-items: center;
+        }
+
+        .header.collapsed .header-content {
+            flex-direction: row;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        /* Title Section */
+        .title-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .header.expanded .title-section {
+            margin-bottom: 0.5rem;
+        }
+
+        .header.collapsed .title-section {
+            flex-direction: row;
+            align-items: center;
+            gap: 1rem;
+            flex: 1;
+            min-width: 0;
+        }
+
+        /* Logo and Title */
+        .logo-container {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .brand-logo {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: white;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            margin: 0;
+        }
+
+        .header.expanded .brand-logo {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .header.collapsed .brand-logo {
+            font-size: 1.5rem;
+        }
+
+        .brand-logo:hover {
+            text-shadow: 0 2px 10px rgba(255, 255, 255, 0.3);
+            transform: translateY(-1px);
+        }
+
+        /* Subtitle */
+        .subtitle {
+            font-size: 1.1rem;
+            opacity: 0.9;
+            max-width: 600px;
+            line-height: 1.4;
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            margin: 0;
+        }
+
+        .header.expanded .subtitle {
+            font-size: 1.2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .header.collapsed .subtitle {
+            font-size: 0.95rem;
+            opacity: 0.85;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 300px;
+            text-align: right;
+        }
+
+        /* Controls Section */
+        .controls-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1rem;
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .header.expanded .controls-section {
+            width: 100%;
+        }
+
+        .header.collapsed .controls-section {
+            flex-direction: row;
+            gap: 1.5rem;
+            align-items: center;
+        }
+
+        /* Top Controls Row */
+        .top-controls {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .header.expanded .top-controls {
+            flex-direction: column;
+            margin-bottom: 0.5rem;
+        }
+
+        .header.collapsed .top-controls {
+            flex-direction: row;
+            gap: 1.5rem;
+        }
+
+        /* Research Badge */
+        .research-badge {
+            background: linear-gradient(135deg, #6f42c1, #20c997);
+            color: white;
+            font-size: 0.8rem;
+            cursor: pointer;
+            border: none;
+            padding: 0.4rem 0.8rem;
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+            transition: all 0.3s ease;
+            text-decoration: none;
+        }
+
+        .research-badge:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .header.collapsed .research-badge {
+            padding: 0.3rem 0.6rem;
+            font-size: 0.75rem;
+        }
+
+        /* Thinking Toggle */
+        .thinking-toggle-container {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .header.expanded .thinking-toggle-container {
+            margin-bottom: 0.5rem;
+        }
+
+        .thinking-toggle-label {
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+            white-space: nowrap;
+            cursor: pointer;
+            margin: 0;
+        }
+
+        .header.collapsed .thinking-toggle-label {
+            font-size: 0.85rem;
+        }
+
+        /* Mode Toggle */
+        .mode-toggle {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 50px;
+            padding: 0.5rem;
+            display: inline-flex;
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .header.expanded .mode-toggle {
+            margin: 0;
+        }
+
+        .header.collapsed .mode-toggle {
+            margin: 0;
+        }
+
+        /* Form Switch */
+        .form-check.form-switch {
+            margin: 0;
+            display: flex;
+            align-items: center;
+        }
+
+        .form-check-input {
+            cursor: pointer;
+        }
+
+        /* Mode Buttons */
+        .mode-btn {
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 25px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            white-space: nowrap;
+        }
+
+        .header.collapsed .mode-btn {
+            padding: 0.6rem 1.2rem;
+            font-size: 0.9rem;
+        }
+
+        .mode-btn.active {
+            background: white;
+            color: var(--genz-purple);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .mode-btn:not(.active) {
+            background: transparent;
+            color: white;
+        }
+
+        .mode-btn:not(.active):hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+        
+        /* Chat Container */
+        .chat-container {
+            padding: 1.5rem;
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            background: #fafafa;
+        }
+
+        .chat-content {
+            width: 100%;
+            height: 100%;
+        }
+
+        .input-section {
+            padding: 1.5rem;
+            border-top: 1px solid #e9ecef;
+            background: white;
+            flex-shrink: 0;
+        }
+
+        .input-section.comparison-mode {
+            border-top: 2px solid var(--comparison-border);
+        }
+        
+        /* Examples Block with Close Button */
+        .examples-block {
+            position: relative;
+            margin-bottom: 1rem;
+            border-radius: 10px;
+            border: 1px solid #e9ecef;
+            background: #f8f9fa;
+            padding: 1rem;
+            transition: all 0.3s ease;
+        }
+        
+        .examples-block.collapsed {
+            max-height: 40px;
+            overflow: hidden;
+        }
+        
+        .examples-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+        
+        .examples-title {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #495057;
+            margin: 0;
+        }
+        
+        .close-examples-btn {
+            background: transparent;
+            border: none;
+            color: #6c757d;
+            font-size: 0.8rem;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .close-examples-btn:hover {
+            background: #e9ecef;
+            color: #495057;
+        }
+        
+        .examples-collapsed-indicator {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.5rem;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border: 1px dashed #dee2e6;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .examples-collapsed-indicator:hover {
+            background: #e9ecef;
+        }
+        
+        .examples-collapsed-title {
+            font-size: 0.85rem;
+            color: #6c757d;
+            margin: 0;
+        }
+        
+        .show-examples-btn {
+            background: transparent;
+            border: none;
+            color: var(--genz-purple);
+            font-size: 0.8rem;
+            padding: 0.25rem 0.75rem;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .show-examples-btn:hover {
+            background: rgba(138, 43, 226, 0.1);
+        }
+        
+        /* Session item styles */
+        .session-item {
+            padding: 0.75rem;
+            margin-bottom: 0.5rem;
+            background: white;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+            position: relative;
+        }
+        
+        .session-item:hover {
+            background: #e9ecef;
+            transform: translateX(5px);
+        }
+        
+        .session-item.active {
+            border-color: var(--genz-purple);
+            background: #e3f2fd;
+        }
+        
+        /* Message styles */
+        .message {
+            margin-bottom: 1.5rem;
+            animation: fadeIn 0.5s ease;
+        }
+        
+        .user-message {
+            text-align: right;
+        }
+        
+        .message-bubble {
+            display: inline-block;
+            padding: 1rem 1.5rem;
+            border-radius: 25px;
+            max-width: 85%;
+            position: relative;
+            word-wrap: break-word;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .user-bubble {
+            background: linear-gradient(135deg, var(--genz-pink), var(--genz-purple));
+            color: white;
+            border-bottom-right-radius: 5px;
+        }
+        
+        .ai-bubble {
+            background: white;
+            border: 1px solid #e0e0e0;
+            color: #333;
+            text-align: left;
+            border-bottom-left-radius: 5px;
+        }
+
+        /* Baseline message styling */
+        .baseline-ai-bubble {
+            background: var(--comparison-bg);
+            border: 1px solid var(--comparison-border);
+            border-left: 4px solid var(--comparison-border);
+        }
+        
+        /* Thinking Container */
+        .thinking-container {
+            margin-top: 1rem;
+            border-radius: 10px;
+            overflow: hidden;
+            border: 1px solid var(--thinking-border);
+            background: var(--thinking-bg);
+        }
+        
+        .thinking-header {
+            padding: 0.75rem 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            background: var(--thinking-bg);
+            border-bottom: 1px solid var(--thinking-border);
+        }
+        
+        .thinking-header:hover {
+            background: #ffecb3;
+        }
+        
+        .thinking-header h6 {
+            margin: 0;
+            color: #5d4037;
+            font-weight: 600;
+        }
+        
+        .thinking-content {
+            padding: 1rem;
+            background: white;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            line-height: 1.4;
+        }
+        
+        .thinking-content.collapsed {
+            display: none;
+        }
+        
+        /* Status indicators */
+        .status-badge {
+            font-size: 0.75rem;
+            padding: 0.25rem 0.5rem;
+            border-radius: 12px;
+            margin-left: 0.5rem;
+        }
+        
+        .status-thinking { background: #ff9800; color: white; }
+        .status-responding { background: #2196f3; color: white; }
+        .status-complete { background: #4caf50; color: white; }
+        .status-error { background: #f44336; color: white; }
+        
+        /* Streaming text */
+        .streaming-text {
+            min-height: 20px;
+            line-height: 1.6;
+        }
+        
+        .streaming-cursor::after {
+            content: '▋';
+            animation: blink 1s infinite;
+            color: #666;
+            margin-left: 2px;
+        }
+        
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0; }
+        }
+        
+        /* Example buttons */
+        .example-btn {
+            background: white;
+            border: 1px solid var(--genz-purple);
+            color: var(--genz-purple);
+            border-radius: 20px;
+            padding: 0.5rem 1rem;
+            margin: 0.25rem;
+            font-size: 0.85rem;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            display: inline-block;
+            max-width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        
+        .example-btn:hover {
+            background: var(--genz-purple);
+            color: white;
+            transform: translateY(-2px);
+        }
+        
+        /* Markdown styling */
+        .markdown-content {
+            text-align: left;
+        }
+        
+        .markdown-content h1, .markdown-content h2, .markdown-content h3 {
+            margin-top: 1rem;
+            margin-bottom: 0.5rem;
+            color: #333;
+        }
+        
+        .markdown-content h1 { font-size: 1.5rem; }
+        .markdown-content h2 { font-size: 1.3rem; }
+        .markdown-content h3 { font-size: 1.1rem; }
+        
+        .markdown-content strong {
+            color: #d32f2f;
+            font-weight: 600;
+        }
+        
+        .markdown-content em {
+            color: #1976d2;
+            font-style: italic;
+        }
+        
+        .markdown-content ul, .markdown-content ol {
+            padding-left: 1.5rem;
+            margin: 0.5rem 0;
+        }
+        
+        .markdown-content li {
+            margin: 0.25rem 0;
+        }
+        
+        .markdown-content blockquote {
+            border-left: 4px solid var(--genz-purple);
+            padding-left: 1rem;
+            margin: 1rem 0;
+            color: #666;
+            font-style: italic;
+        }
+        
+        /* Animations */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        /* Typing indicator */
+        .typing-indicator {
+            display: inline-flex;
+            align-items: center;
+            padding: 1rem 1.5rem;
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 25px;
+            color: #666;
+            font-style: italic;
+        }
+        
+        .typing-dots {
+            margin-left: 0.5rem;
+        }
+        
+        .typing-dots span {
+            display: inline-block;
+            width: 4px;
+            height: 4px;
+            border-radius: 50%;
+            background: #666;
+            margin: 0 2px;
+            animation: typingDots 1.4s infinite;
+        }
+        
+        .typing-dots span:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+        
+        .typing-dots span:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+        
+        @keyframes typingDots {
+            0%, 60%, 100% { opacity: 0.4; transform: translateY(0); }
+            30% { opacity: 1; transform: translateY(-4px); }
+        }
+        
+        .bg-purple { background: var(--genz-purple) !important; }
+        .bg-teal { background: var(--parent-teal) !important; }
+        .bg-orange { background: var(--parent-orange) !important; }
+        
+        /* Delete button styles */
+        .delete-session {
+            position: absolute;
+            right: 8px;
+            top: 8px;
+            width: 24px;
+            height: 24px;
+            border-radius: 4px;
+            background: rgba(220, 53, 69, 0.1);
+            border: 1px solid rgba(220, 53, 69, 0.2);
+            color: #dc3545;
+            font-size: 0.75rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            opacity: 0;
+            transition: all 0.2s ease;
+            z-index: 10;
+        }
+
+        .delete-session:hover {
+            background: #dc3545;
+            color: white;
+            transform: scale(1.1);
+        }
+
+        .session-item:hover .delete-session {
+            opacity: 1;
+        }
+
+        .session-item {
+            padding: 0.75rem;
+            margin-bottom: 0.5rem;
+            background: white;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+            position: relative;
+            padding-right: 2rem;
+        }
+
+        .session-item:hover {
+            background: #e9ecef;
+            transform: translateX(5px);
+        }
+
+        .session-item.active {
+            border-color: var(--genz-purple);
+            background: #e3f2fd;
+        }
+
+        .session-title {
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            padding-right: 1.5rem;
+        }
+
+        .session-preview {
+            font-size: 0.85rem;
+            color: #666;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-bottom: 0.25rem;
+        }
+
+        .session-meta {
+            font-size: 0.75rem;
+            color: #999;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        /* Send button container */
+        .send-btn-container {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .send-btn {
+            background: linear-gradient(135deg, var(--genz-purple), var(--genz-blue));
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 0.75rem 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.3s ease;
+        }
+
+        .compare-btn {
+            background: linear-gradient(135deg, #4CAF50, #8BC34A);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 0.75rem 1.25rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.3s ease;
+        }
+
+        .send-btn:hover, .compare-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .send-btn:disabled, .compare-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        /* Empty state for chat columns */
+        .chat-column-empty {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: #666;
+            padding: 2rem;
+            text-align: center;
+        }
+
+        /* Comparison mode indicator */
+        .comparison-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: rgba(76, 175, 80, 0.1);
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            color: #2e7d32;
+            font-size: 0.85rem;
+            margin-bottom: 1rem;
+            border: 1px solid rgba(76, 175, 80, 0.2);
+        }
+
+        /* Chat Columns (for comparison mode) */
+        .chat-columns-container {
+            display: flex;
+            gap: 1rem;
+            height: calc(100% - 60px);
+            min-height: 0;
+        }
+
+        .chat-column {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            border-radius: 10px;
+            overflow: hidden;
+            background: white;
+            border: 1px solid #e0e0e0;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            min-width: 0;
+            min-height: 0;
+        }
+
+        .chat-column-header {
+            padding: 1rem;
+            background: linear-gradient(135deg, var(--genz-purple), var(--genz-blue));
+            color: white;
+            text-align: center;
+            font-weight: 600;
+            border-bottom: 1px solid #e0e0e0;
+            flex-shrink: 0;
+        }
+
+        .baseline-column .chat-column-header {
+            background: linear-gradient(135deg, #4CAF50, #8BC34A);
+        }
+
+        .chat-column-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1rem;
+            background: #fafafa;
+            min-height: 0;
+        }
+        
+        /* Mobile responsiveness */
+        @media (max-width: 992px) {
+            .header.collapsed .subtitle {
+                max-width: 200px;
+                font-size: 0.85rem;
+            }
+            
+            .header.collapsed .controls-section {
+                gap: 1rem;
+            }
+
+            .chat-columns-container {
+                flex-direction: column;
+            }
+
+            .chat-column {
+                min-height: 300px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .app-container {
+                flex-direction: column;
+                padding: 0.5rem;
+            }
+            
+            .sidebar {
+                width: 100%;
+                margin-right: 0;
+                margin-bottom: 1rem;
+                max-height: 300px;
+            }
+            
+            .chat-container {
+                max-height: 50vh;
+            }
+            
+            .header.collapsed {
+                padding: 0.5rem 1rem;
+            }
+            
+            .header.collapsed .header-content {
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+            
+            .header.collapsed .title-section {
+                flex-direction: column;
+                gap: 0.25rem;
+                width: 100%;
+                text-align: center;
+            }
+            
+            .header.collapsed .subtitle {
+                max-width: 100%;
+                white-space: normal;
+                text-align: center;
+                font-size: 0.8rem;
+            }
+            
+            .header.collapsed .controls-section {
+                flex-direction: column;
+                width: 100%;
+                align-items: center;
+            }
+            
+            .header.collapsed .top-controls {
+                justify-content: center;
+                gap: 1rem;
+            }
+            
+            .header.collapsed .mode-toggle {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .send-btn-container {
+                flex-direction: column;
+            }
+
+            .send-btn, .compare-btn {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+
+        /* Smooth transitions for all header children */
+        .header * {
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* Block for additional page-specific styles */
+        {% block extra_css %}{% endblock %}
+    </style>
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <div class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <h5 class="mb-3">
+                    <i class="bi bi-chat-left-text me-2"></i>
+                    Conversations
+                </h5>
+                <button class="btn btn-primary btn-sm w-100 mb-2" id="newSessionBtn">
+                    <i class="bi bi-plus-circle me-1"></i> {% block new_session_text %}New Chat{% endblock %}
+                </button>
+                <div class="d-flex justify-content-between">
+                    <small class="text-muted" id="sessionCount">Loading...</small>
+                    <small class="text-muted" id="currentModeBadge">GenZ Mode</small>
+                </div>
+            </div>
+            <div class="sidebar-content" id="sessionsList">
+                <!-- Sessions will be loaded here -->
+                <div class="text-center text-muted mt-5">
+                    <i class="bi bi-chat-dots display-6 mb-3 d-block"></i>
+                    <p>No conversations yet</p>
+                    <button class="btn btn-outline-primary btn-sm" id="newSessionBtn2">
+                        {% block new_session_button_text %}Start a new conversation{% endblock %}
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Main Content -->
+        <div class="main-content">
+            <div class="main-container">
+                <!-- Header -->
+                <div class="header expanded" id="mainHeader">
+                    <div class="header-content">
+                        <!-- Title Section -->
+                        <div class="title-section">
+                            <div class="logo-container">
+                                <h1 class="brand-logo" id="brandLogo">{% block page_title %}Bridge{% endblock %}</h1>
+                            </div>
+                            <p class="subtitle" id="headerSubtitle">{% block page_subtitle %}Mental Health Communication Assistant for Gen Z & Families{% endblock %}</p>
+                        </div>
+                        
+                        <!-- Controls Section -->
+                        <div class="controls-section">
+                            <!-- Top Controls Row -->
+                            <div class="top-controls">
+                                <span class="badge research-badge" data-bs-toggle="modal" data-bs-target="#researchModal">
+                                    <i class="bi bi-graph-up me-1"></i> Research-Based
+                                </span>
+                                <div class="thinking-toggle-container">
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="thinkingToggle" checked>
+                                        <label class="form-check-label thinking-toggle-label" for="thinkingToggle">
+                                            <i class="bi bi-cpu me-1"></i> Show Thinking
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Mode Toggle -->
+                            <div class="mode-toggle">
+                                <button class="mode-btn active" id="genzMode">
+                                    <i class="bi bi-phone me-2"></i> I'm Gen Z
+                                </button>
+                                <button class="mode-btn" id="parentMode">
+                                    <i class="bi bi-people me-2"></i> I'm a Parent
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Chat Area -->
+                {% block chat_area %}
+                <!-- This will be overridden by child templates -->
+                {% endblock %}
+                
+                <!-- Input Section -->
+                <div class="input-section" id="inputSection">
+                    <!-- Examples Block with Close Button -->
+                    <div id="examplesBlockContainer">
+                        <!-- Content will be dynamically inserted -->
+                    </div>
+                    
+                    <div class="input-group mb-2">
+                        <input type="text" 
+                               class="form-control" 
+                               placeholder="{% block input_placeholder %}Type your message here...{% endblock %}" 
+                               id="messageInput"
+                               autocomplete="off"
+                               aria-label="Message input">
+                        <div class="send-btn-container">
+                            {% block action_buttons %}
+                            <!-- Default action buttons, can be overridden -->
+                            <button class="btn send-btn" type="button" id="sendBtn">
+                                <i class="bi bi-send me-1"></i> Send
+                            </button>
+                            {% endblock %}
+                        </div>
+                    </div>
+                    
+                    <div class="text-center">
+                        <small class="text-muted">
+                            <i class="bi bi-shield-lock me-1"></i> Private & anonymous • Powered by research
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Research Insights Modal -->
+    <div class="modal fade" id="researchModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Research Foundation</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <div class="card h-100 border-0 shadow-sm">
+                                <div class="card-header bg-purple text-white">
+                                    <i class="bi bi-person-badge me-2"></i> Hypothesis 1
+                                </div>
+                                <div class="card-body">
+                                    <h6 class="card-title">GenZ Initiator vs Respondent Patterns</h6>
+                                    <ul class="mb-0">
+                                        <li>85% higher authenticity markers in initiators</li>
+                                        <li>40% more first-person pronouns</li>
+                                        <li>Strong negative sentiment correlation</li>
+                                        <li>p < 0.001 statistical significance</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <div class="card h-100 border-0 shadow-sm">
+                                <div class="card-header bg-teal text-white">
+                                    <i class="bi bi-virus me-2"></i> Hypothesis 2
+                                </div>
+                                <div class="card-body">
+                                    <h6 class="card-title">Pandemic Impact Analysis</h6>
+                                    <ul class="mb-0">
+                                        <li>30% sentiment decline in anxiety groups</li>
+                                        <li>Physical symptom focus +38%</li>
+                                        <li>Structural reorganization observed</li>
+                                        <li>t=6.483-8.534 (high significance)</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-12">
+                            <div class="card border-0 shadow-sm">
+                                <div class="card-header bg-orange text-white">
+                                    <i class="bi bi-arrows-angle-contract me-2"></i> Hypothesis 3
+                                </div>
+                                <div class="card-body">
+                                    <h6 class="card-title">Generational Discourse Differences</h6>
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <strong class="d-block mb-2">GenZ Topics (60% focus):</strong>
+                                            <ul>
+                                                <li>Existential concerns</li>
+                                                <li>Identity exploration</li>
+                                                <li>Social relationships</li>
+                                                <li>Authenticity markers</li>
+                                            </ul>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <strong class="d-block mb-2">Non-GenZ Topics (70% focus):</strong>
+                                            <ul>
+                                                <li>Medication management</li>
+                                                <li>Practical solutions</li>
+                                                <li>Clinical experiences</li>
+                                                <li>Symptom management</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Common JavaScript (shared between both modes) -->
+    <script>
+        // Configure marked for markdown rendering
+        marked.setOptions({
+            breaks: true,
+            gfm: true,
+            headerIds: false,
+            mangle: false
+        });
+
+        // Get CSRF token
+        const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
+        
+        // Common application state (will be extended by child templates)
+        let currentMode = 'genz';
+        let showThinking = true;
+        let isStreaming = false;
+        let currentSessionId = null;
+        let currentSessionKey = null;
+        let sessions = {};
+        let examplesCollapsed = sessionStorage.getItem('bridge_examples_collapsed') === 'true';
+        let isHeaderCollapsed = false;
+        let hasMessages = false;
+        
+        // Research-based example dialogues (common)
+        const examples = {
+            genz: [
+                "I just feel completely empty inside, like nothing matters anymore. Everyone else seems to have it figured out but I'm just floating.",
+                "My anxiety makes me feel like I'm drowning. I had a panic attack during class today and had to leave. I'm so embarrassed.",
+                "School feels pointless when the world is literally ending. Why even try when everything's so messed up?",
+                "I can't talk to my parents about my depression. They just tell me to 'think positive' or compare it to their problems.",
+                "I feel so isolated even with friends around. Everything feels performative and fake."
+            ],
+            parent: [
+                "You need to stop spending so much time on your phone and get some real exercise. That would fix your mood.",
+                "When I was your age, I worked two jobs and went to school. You don't know what real stress is.",
+                "Just think positive! Your generation focuses too much on the negative.",
+                "Have you tried going outside more? Sunlight helps depression.",
+                "You're too young to be this stressed. Wait until you have real adult responsibilities."
+            ]
+        };
+
+        // Common utility functions
+        function formatTimeAgo(timestamp) {
+            const date = new Date(timestamp);
+            const now = new Date();
+            const diffMs = now - date;
+            const diffMins = Math.floor(diffMs / 60000);
+            const diffHours = Math.floor(diffMs / 3600000);
+            const diffDays = Math.floor(diffMs / 86400000);
+            
+            if (diffMins < 1) return 'Just now';
+            if (diffMins < 60) return `${diffMins} minute${diffMins !== 1 ? 's' : ''} ago`;
+            if (diffHours < 24) return `${diffHours} hour${diffHours !== 1 ? 's' : ''} ago`;
+            if (diffDays < 7) return `${diffDays} day${diffDays !== 1 ? 's' : ''} ago`;
+            
+            return date.toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric',
+                year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined
+            });
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Generate a unique session key for browser storage
+        function getSessionKey() {
+            if (!currentSessionKey) {
+                currentSessionKey = localStorage.getItem('bridge_session_key');
+                if (!currentSessionKey) {
+                    currentSessionKey = 'user_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+                    localStorage.setItem('bridge_session_key', currentSessionKey);
+                }
+            }
+            return currentSessionKey;
+        }
+
+        // Header state management (common)
+        function collapseHeader() {
+            const header = document.getElementById('mainHeader');
+            if (!isHeaderCollapsed) {
+                header.classList.remove('expanded');
+                header.classList.add('collapsed');
+                isHeaderCollapsed = true;
+                hasMessages = true;
+                sessionStorage.setItem('bridge_header_collapsed', 'true');
+            }
+        }
+
+        function expandHeader() {
+            const header = document.getElementById('mainHeader');
+            if (isHeaderCollapsed) {
+                header.classList.remove('collapsed');
+                header.classList.add('expanded');
+                isHeaderCollapsed = false;
+                sessionStorage.setItem('bridge_header_collapsed', 'false');
+            }
+        }
+
+        function initializeHeaderState() {
+            const chatContainer = document.getElementById('chatContainer');
+            const messages = chatContainer.querySelectorAll('.message:not(.user-message)');
+            
+            if (messages.length > 1) {
+                hasMessages = true;
+                collapseHeader();
+            } else {
+                const savedState = sessionStorage.getItem('bridge_header_collapsed');
+                if (savedState === 'true') {
+                    collapseHeader();
+                }
+            }
+        }
+
+        // Example buttons (common)
+        function updateExampleButtons() {
+            const container = document.getElementById('examplesBlockContainer');
+            
+            if (examplesCollapsed) {
+                container.innerHTML = `
+                    <div class="examples-collapsed-indicator mb-3" onclick="toggleExamplesBlock()">
+                        <p class="examples-collapsed-title mb-0">
+                            <i class="bi bi-lightbulb me-1"></i>
+                            Show example messages
+                        </p>
+                        <button class="show-examples-btn">
+                            Show
+                        </button>
+                    </div>
+                `;
+            } else {
+                container.innerHTML = `
+                    <div class="examples-block mb-3">
+                        <div class="examples-header">
+                            <p class="examples-title mb-0">
+                                <i class="bi bi-lightbulb me-1"></i>
+                                Try these examples based on our research:
+                            </p>
+                            <button class="close-examples-btn" onclick="toggleExamplesBlock()">
+                                <i class="bi bi-x-lg"></i> Close
+                            </button>
+                        </div>
+                        <div id="exampleButtons" class="d-flex flex-wrap gap-1">
+                            <!-- Example buttons will be dynamically added here -->
+                        </div>
+                    </div>
+                `;
+                
+                const exampleButtonsContainer = document.getElementById('exampleButtons');
+                if (exampleButtonsContainer) {
+                    exampleButtonsContainer.innerHTML = '';
+                    
+                    examples[currentMode].forEach((example, index) => {
+                        const button = document.createElement('button');
+                        button.type = 'button';
+                        button.className = 'example-btn';
+                        button.textContent = example.length > 60 ? example.substring(0, 57) + '...' : example;
+                        button.title = example;
+                        button.onclick = () => {
+                            document.getElementById('messageInput').value = example;
+                            document.getElementById('messageInput').focus();
+                        };
+                        exampleButtonsContainer.appendChild(button);
+                    });
+                }
+            }
+        }
+
+        function toggleExamplesBlock() {
+            examplesCollapsed = !examplesCollapsed;
+            sessionStorage.setItem('bridge_examples_collapsed', examplesCollapsed);
+            updateExampleButtons();
+        }
+
+        // Session management (common)
+        async function loadSessions() {
+            try {
+                const response = await fetch(`/sessions/?session_key=${getSessionKey()}&mode=${currentMode}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    sessions[currentMode] = data.sessions;
+                    renderSessionsList();
+                    
+                    // If we have a current session for this mode, load it
+                    if (currentSessionId && data.sessions.some(s => s.id === currentSessionId)) {
+                        // Already loaded
+                    } else if (data.sessions.length > 0) {
+                        // Load the most recent session for this mode
+                        await loadSession(data.sessions[0].id);
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading sessions:', error);
+            }
+        }
+
+        function renderSessionsList() {
+            const container = document.getElementById('sessionsList');
+            const sessionList = sessions[currentMode] || [];
+            
+            if (sessionList.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center text-muted mt-5">
+                        <i class="bi bi-chat-dots display-6 mb-3 d-block"></i>
+                        <p>No conversations yet</p>
+                        <button class="btn btn-outline-primary btn-sm" onclick="createNewSession()">
+                            Start a new conversation
+                        </button>
+                    </div>
+                `;
+                document.getElementById('sessionCount').textContent = '0 conversations';
+                return;
+            }
+            
+            let html = '';
+            sessionList.forEach(session => {
+                const isActive = currentSessionId === session.id;
+                const timeAgo = formatTimeAgo(session.updated_at);
+                const sessionType = session.is_comparison ? '<span class="badge bg-success badge-sm ms-1">Compare</span>' : '';
+                
+                html += `
+                    <div class="session-item ${isActive ? 'active' : ''}" onclick="loadSession('${session.id}')">
+                        <button class="delete-session" onclick="deleteSession('${session.id}', event)">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                        <div class="session-title">${escapeHtml(session.title)} ${sessionType}</div>
+                        <div class="session-preview">${escapeHtml(session.last_preview)}</div>
+                        <div class="session-meta">
+                            <span>${session.message_count} messages</span>
+                            <span>${timeAgo}</span>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+            document.getElementById('sessionCount').textContent = `${sessionList.length} conversation${sessionList.length !== 1 ? 's' : ''}`;
+        }
+
+        async function deleteSession(sessionId, event) {
+            event.stopPropagation();
+            
+            if (!confirm('Are you sure you want to delete this conversation?')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch('/sessions/delete/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrftoken
+                    },
+                    body: JSON.stringify({
+                        session_id: sessionId,
+                        session_key: getSessionKey()
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    if (currentSessionId === sessionId) {
+                        currentSessionId = null;
+                        clearChatDisplay();
+                        addWelcomeMessage();
+                        expandHeader();
+                        hasMessages = false;
+                    }
+                    
+                    await loadSessions();
+                }
+            } catch (error) {
+                console.error('Error deleting session:', error);
+                alert('Failed to delete session. Please try again.');
+            }
+        }
+
+        // Message creation (common)
+        function createUserMessage(content) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message user-message';
+            
+            const bubble = document.createElement('div');
+            bubble.className = 'message-bubble user-bubble';
+            bubble.textContent = content;
+            
+            messageDiv.appendChild(bubble);
+            return messageDiv;
+        }
+
+        // Mode management (common)
+        function updateModeUI() {
+            document.getElementById('genzMode').classList.toggle('active', currentMode === 'genz');
+            document.getElementById('parentMode').classList.toggle('active', currentMode === 'parent');
+            
+            updateExampleButtons();
+            updateModeBadge();
+            
+            // Reset to new chat when switching modes
+            currentSessionId = null;
+            clearChatDisplay();
+            addWelcomeMessage();
+            expandHeader();
+            hasMessages = false;
+            
+            // Load sessions for the new mode
+            loadSessions();
+        }
+
+        function updateModeBadge() {
+            const badge = document.getElementById('currentModeBadge');
+            badge.textContent = currentMode === 'genz' ? 'GenZ Mode' : 'Parent Mode';
+            badge.style.color = currentMode === 'genz' ? 'var(--genz-purple)' : 'var(--parent-teal)';
+        }
+
+        // Scrolling (common)
+        function scrollToBottom() {
+            const container = document.getElementById('chatContainer');
+            if (container) {
+                setTimeout(() => {
+                    container.scrollTop = container.scrollHeight;
+                }, 100);
+            }
+        }
+
+        // Setup (common)
+        function setupScrolling() {
+            document.body.style.overflow = 'hidden';
+            document.documentElement.style.overflow = 'hidden';
+            
+            const chatContainer = document.getElementById('chatContainer');
+            const sidebarContent = document.querySelector('.sidebar-content');
+            
+            if (chatContainer) {
+                chatContainer.addEventListener('wheel', function(e) {}, { passive: true });
+            }
+            
+            if (sidebarContent) {
+                sidebarContent.addEventListener('wheel', function(e) {}, { passive: true });
+            }
+        }
+
+        // Event listeners setup (common)
+        function setupCommonEventListeners() {
+            // Mode toggle
+            document.getElementById('genzMode').addEventListener('click', function() {
+                currentMode = 'genz';
+                updateModeUI();
+            });
+            
+            document.getElementById('parentMode').addEventListener('click', function() {
+                currentMode = 'parent';
+                updateModeUI();
+            });
+            
+            // New session buttons
+            document.getElementById('newSessionBtn').addEventListener('click', async () => {
+                currentSessionId = null;
+                clearChatDisplay();
+                addWelcomeMessage();
+                expandHeader();
+                hasMessages = false;
+            });
+            
+            document.getElementById('newSessionBtn2').addEventListener('click', async () => {
+                currentSessionId = null;
+                clearChatDisplay();
+                addWelcomeMessage();
+                expandHeader();
+                hasMessages = false;
+            });
+            
+            // Thinking toggle
+            document.getElementById('thinkingToggle').addEventListener('change', function() {
+                showThinking = this.checked;
+                
+                document.querySelectorAll('.thinking-container').forEach(container => {
+                    container.style.display = showThinking ? 'block' : 'none';
+                });
+            });
+            
+            // Focus input on load
+            document.getElementById('messageInput').focus();
+        }
+
+        // Initialize common parts
+        function initializeCommon() {
+            updateExampleButtons();
+            loadSessions();
+            updateModeBadge();
+            initializeHeaderState();
+            setupScrolling();
+            setupCommonEventListeners();
+        }
+
+        // Toggle thinking section (common)
+        window.toggleThinking = function(containerId) {
+            const container = document.getElementById(containerId);
+            const button = container.previousElementSibling.querySelector('button i');
+            
+            if (container.classList.contains('collapsed')) {
+                container.classList.remove('collapsed');
+                button.className = 'bi bi-chevron-up';
+            } else {
+                container.classList.add('collapsed');
+                button.className = 'bi bi-chevron-down';
+            }
+        };
+    </script>
+    
+    <!-- Page-specific JavaScript will be inserted here -->
+    {% block page_js %}{% endblock %}
+    
+    <!-- Initialize the app -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeCommon();
+            // Child templates can extend this initialization
+            {% block page_init %}{% endblock %}
+        });
+    </script>
+</body>
+</html>
