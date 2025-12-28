@@ -34,8 +34,10 @@ urlpatterns = [
     path('sessions/', views.get_sessions, name='get_sessions'),
     path('sessions/delete/', views.delete_session, name='delete_session'),
     path('sessions/messages/', views.get_session_messages, name='get_session_messages'),
-    path('sessions/comparison_messages/', views.get_comparison_messages, name='get_comparison_messages'),
-    path('sessions/last_user_message/', views.last_user_message, name='last_user_message'),
+    path('sessions/comparison/', views.get_comparison_session, name='get_comparison_session'),
+    
+    # Comparison turn management
+    path('sessions/start_comparison_turn/', views.start_comparison_turn, name='start_comparison_turn'),
 
     # Research insights
     path('research-insights/', views.research_insights, name='research_insights'),

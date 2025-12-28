@@ -78,8 +78,16 @@
         }
         
         const contentDiv = document.createElement('div');
-        contentDiv.className = 'markdown-content streaming-text';
-        contentDiv.innerHTML = content;
+        contentDiv.className = 'markdown-content';
+        
+        // Parse markdown content properly
+        try {
+            contentDiv.innerHTML = marked.parse(content || '');
+        } catch (e) {
+            console.error('Error parsing markdown:', e);
+            contentDiv.textContent = content || '';
+        }
+        
         bubble.appendChild(contentDiv);
         
         messageDiv.appendChild(bubble);
@@ -117,8 +125,8 @@
                         AI Thinking Process
                         <span class="badge bg-warning badge-sm ms-2" id="thinking-badge-${messageId}">Live</span>
                     </h6>
-                    <button class="collapse-btn">
-                        <i class="bi bi-chevron-up"></i> Hide
+                    <button class="btn btn-sm p-0 border-0 bg-transparent text-dark">
+                        <i class="bi bi-chevron-up"></i>
                     </button>
                 </div>
                 <div class="thinking-content collapsed streaming-text" id="${messageId}-thinking-content">
@@ -169,6 +177,33 @@
         }
     }
 
+    // Load only normal sessions for this mode
+    async function loadSessions() {
+        try {
+            const response = await fetch(`/sessions/?session_key=${getSessionKey()}&mode=${currentMode}&session_type=normal`);
+            const data = await response.json();
+            
+            if (data.success) {
+                sessions[currentMode] = data.sessions;
+                renderSessionsList();
+                
+                // If we have a current session for this mode, load it
+                if (currentSessionId && data.sessions.some(s => s.id === currentSessionId)) {
+                    // Already loaded
+                } else if (data.sessions.length > 0) {
+                    // Load the most recent session for this mode
+                    await loadSession(data.sessions[0].id);
+                } else {
+                    // No sessions, add welcome message
+                    clearChatDisplay();
+                    addWelcomeMessage();
+                }
+            }
+        } catch (error) {
+            console.error('Error loading sessions:', error);
+        }
+    }
+
     // Create a new session
     async function createNewSession() {
         try {
@@ -181,7 +216,7 @@
                 body: JSON.stringify({
                     mode: currentMode,
                     session_key: getSessionKey(),
-                    is_comparison: false
+                    session_type: 'normal'
                 })
             });
             
@@ -190,14 +225,16 @@
             if (data.success) {
                 currentSessionId = data.session.id;
                 
+                // Clear chat and show welcome message
+                clearChatDisplay();
+                addWelcomeMessage();
+                
                 // Expand header for new session
                 expandHeader();
                 hasMessages = false;
                 
+                // Load sessions
                 await loadSessions();
-                
-                // Show welcome message
-                addWelcomeMessage();
                 
                 return true;
             }

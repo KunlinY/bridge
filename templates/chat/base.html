@@ -1369,29 +1369,6 @@
             updateExampleButtons();
         }
 
-        // Session management (common)
-        async function loadSessions() {
-            try {
-                const response = await fetch(`/sessions/?session_key=${getSessionKey()}&mode=${currentMode}`);
-                const data = await response.json();
-                
-                if (data.success) {
-                    sessions[currentMode] = data.sessions;
-                    renderSessionsList();
-                    
-                    // If we have a current session for this mode, load it
-                    if (currentSessionId && data.sessions.some(s => s.id === currentSessionId)) {
-                        // Already loaded
-                    } else if (data.sessions.length > 0) {
-                        // Load the most recent session for this mode
-                        await loadSession(data.sessions[0].id);
-                    }
-                }
-            } catch (error) {
-                console.error('Error loading sessions:', error);
-            }
-        }
-
         function renderSessionsList() {
             const container = document.getElementById('sessionsList');
             const sessionList = sessions[currentMode] || [];

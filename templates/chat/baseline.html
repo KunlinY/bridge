@@ -15,6 +15,26 @@
     height: 100%;
     width: 100%;
 }
+.comparison-turn {
+    border-left: 3px solid var(--genz-purple);
+    padding-left: 10px;
+    margin-bottom: 20px;
+}
+.turn-number {
+    font-size: 0.8rem;
+    color: #666;
+    margin-bottom: 5px;
+}
+.bridge-response {
+    border-left: 3px solid var(--genz-blue);
+    padding-left: 10px;
+    margin: 10px 0;
+}
+.baseline-response {
+    border-left: 3px solid var(--comparison-border);
+    padding-left: 10px;
+    margin: 10px 0;
+}
 {% endblock %}
 
 {% block chat_area %}
@@ -35,6 +55,11 @@
                 </div>
                 <div class="chat-column-content" id="bridgeChatContent">
                     <!-- Content will be loaded here -->
+                    <div class="text-center text-muted mt-5">
+                        <i class="bi bi-robot display-6 mb-3 d-block text-primary"></i>
+                        <p>Enhanced with research-based prompts</p>
+                        <small class="d-block">Uses our 3 hypotheses to improve communication</small>
+                    </div>
                 </div>
             </div>
             
@@ -45,6 +70,11 @@
                 </div>
                 <div class="chat-column-content" id="baselineChatContent">
                     <!-- Content will be loaded here -->
+                    <div class="text-center text-muted mt-5">
+                        <i class="bi bi-cpu display-6 mb-3 d-block text-success"></i>
+                        <p>Raw model without prompt engineering</p>
+                        <small class="d-block">Standard DeepSeek response for comparison</small>
+                    </div>
                 </div>
             </div>
         </div>
@@ -109,32 +139,6 @@
         return messageDiv;
     }
 
-    // Initialize comparison columns with placeholder content
-    function initializeComparisonColumns() {
-        const bridgeContent = document.getElementById('bridgeChatContent');
-        const baselineContent = document.getElementById('baselineChatContent');
-        
-        if (bridgeContent && bridgeContent.children.length === 0) {
-            bridgeContent.innerHTML = `
-                <div class="text-center text-muted mt-5">
-                    <i class="bi bi-robot display-6 mb-3 d-block text-primary"></i>
-                    <p>Enhanced with research-based prompts</p>
-                    <small class="d-block">Uses our 3 hypotheses to improve communication</small>
-                </div>
-            `;
-        }
-        
-        if (baselineContent && baselineContent.children.length === 0) {
-            baselineContent.innerHTML = `
-                <div class="text-center text-muted mt-5">
-                    <i class="bi bi-cpu display-6 mb-3 d-block text-success"></i>
-                    <p>Raw model without prompt engineering</p>
-                    <small class="d-block">Standard DeepSeek response for comparison</small>
-                </div>
-            `;
-        }
-    }
-
     // Clear comparison columns
     function clearComparisonColumns() {
         const bridgeContent = document.getElementById('bridgeChatContent');
@@ -144,14 +148,19 @@
         if (baselineContent) baselineContent.innerHTML = '';
     }
 
-    // Clear chat display (for comparison)
+    // Clear chat display (for comparison) - override base function
     function clearChatDisplay() {
         clearComparisonColumns();
     }
 
-    // Add welcome message (for comparison)
+    // Add welcome message (for comparison) - override base function
     function addWelcomeMessage() {
-        initializeComparisonColumns();
+        // Already handled in the HTML template
+    }
+
+    // Hide initial message - override base function
+    function hideInitialMessage() {
+        // Not used in comparison mode
     }
 
     // Create streaming message container for comparison mode
@@ -192,7 +201,7 @@
                         <span class="badge bg-warning badge-sm ms-2" id="thinking-badge-${messageId}">Live</span>
                     </h6>
                     <button class="collapse-btn">
-                        <i class="bi bi-chevron-up"></i> Hide
+                        <i class="bi bi-chevron-up"></i>
                     </button>
                 </div>
                 <div class="thinking-content collapsed streaming-text" id="${messageId}-thinking-content">
@@ -228,7 +237,7 @@
                 body: JSON.stringify({
                     mode: currentMode,
                     session_key: getSessionKey(),
-                    is_comparison: true
+                    session_type: 'comparison'
                 })
             });
             
@@ -237,10 +246,32 @@
             if (data.success) {
                 currentSessionId = data.session.id;
                 
-                // Clear chat columns
+                // Clear chat and show welcome message
                 clearComparisonColumns();
-                initializeComparisonColumns();
+                const bridgeContent = document.getElementById('bridgeChatContent');
+                const baselineContent = document.getElementById('baselineChatContent');
                 
+                bridgeContent.innerHTML = `
+                    <div class="text-center text-muted mt-5">
+                        <i class="bi bi-robot display-6 mb-3 d-block text-primary"></i>
+                        <p>Enhanced with research-based prompts</p>
+                        <small class="d-block">Uses our 3 hypotheses to improve communication</small>
+                    </div>
+                `;
+                
+                baselineContent.innerHTML = `
+                    <div class="text-center text-muted mt-5">
+                        <i class="bi bi-cpu display-6 mb-3 d-block text-success"></i>
+                        <p>Raw model without prompt engineering</p>
+                        <small class="d-block">Standard DeepSeek response for comparison</small>
+                    </div>
+                `;
+                
+                // Expand header for new session
+                expandHeader();
+                hasMessages = false;
+                
+                // Load sessions
                 await loadSessions();
                 
                 return true;
@@ -253,14 +284,15 @@
         }
     }
 
-    // Load comparison messages
-    async function loadComparisonMessages(sessionId, messages) {
+    // Load comparison session with turns
+    async function loadComparisonSession(sessionId) {
         try {
-            // Get comparison messages
-            const response = await fetch(`/sessions/comparison_messages/?session_id=${sessionId}&session_key=${getSessionKey()}`);
+            const response = await fetch(`/sessions/comparison/?session_id=${sessionId}&session_key=${getSessionKey()}`);
             const data = await response.json();
             
             if (data.success) {
+                currentSessionId = sessionId;
+                
                 const bridgeContent = document.getElementById('bridgeChatContent');
                 const baselineContent = document.getElementById('baselineChatContent');
                 
@@ -268,85 +300,95 @@
                 bridgeContent.innerHTML = '';
                 baselineContent.innerHTML = '';
                 
-                // Group messages by user message ID
-                const messageGroups = {};
-                
-                // First, get all user messages
-                if (messages && messages.length > 0) {
-                    messages.forEach(msg => {
-                        if (msg.role === 'user') {
-                            messageGroups[msg.id] = {
-                                user: msg,
-                                bridge: null,
-                                baseline: null
-                            };
-                        }
-                    });
-                }
-                
-                // Then add bridge and baseline responses
-                if (data.comparison_messages && data.comparison_messages.length > 0) {
-                    data.comparison_messages.forEach(msg => {
-                        if (msg.role === 'assistant' && msg.message_type === 'bridge' && msg.user_message_id) {
-                            if (messageGroups[msg.user_message_id]) {
-                                messageGroups[msg.user_message_id].bridge = msg;
-                            }
-                        } else if (msg.role === 'assistant' && msg.message_type === 'baseline' && msg.user_message_id) {
-                            if (messageGroups[msg.user_message_id]) {
-                                messageGroups[msg.user_message_id].baseline = msg;
-                            }
-                        }
-                    });
-                }
-                
-                // Display each message group
-                const messageGroupsArray = Object.values(messageGroups);
-                if (messageGroupsArray.length > 0) {
-                    messageGroupsArray.forEach(group => {
-                        if (group.user) {
-                            // Add user message to both columns
-                            const userMsg = createUserMessage(group.user.content);
+                // Display each turn
+                if (data.turns && data.turns.length > 0) {
+                    let hasMessages = false;
+                    
+                    data.turns.forEach(turn => {
+                        // User message
+                        if (turn.user_message) {
+                            const userMsg = createUserMessage(turn.user_message.content);
                             bridgeContent.appendChild(userMsg.cloneNode(true));
                             baselineContent.appendChild(userMsg.cloneNode(true));
-                            
-                            // Add bridge response if exists
-                            if (group.bridge) {
-                                const bridgeMsg = createAIMessage(
-                                    marked.parse(group.bridge.content),
-                                    group.bridge.thinking ? marked.parse(group.bridge.thinking) : null,
-                                    'ai',
-                                    false
-                                );
-                                bridgeContent.appendChild(bridgeMsg);
-                            }
-                            
-                            // Add baseline response if exists
-                            if (group.baseline) {
-                                const baselineMsg = createAIMessage(
-                                    marked.parse(group.baseline.content),
-                                    null,
-                                    'ai',
-                                    true
-                                );
-                                baselineContent.appendChild(baselineMsg);
-                            }
+                            hasMessages = true;
+                        }
+                        
+                        // Bridge response
+                        if (turn.bridge_response) {
+                            const bridgeMsg = createAIMessage(
+                                marked.parse(turn.bridge_response.content),
+                                turn.bridge_response.thinking ? marked.parse(turn.bridge_response.thinking) : null,
+                                'ai',
+                                false
+                            );
+                            bridgeContent.appendChild(bridgeMsg);
+                        } else if (turn.user_message) {
+                            // Add placeholder for missing bridge response
+                            const placeholder = document.createElement('div');
+                            placeholder.className = 'text-center text-muted mt-3 mb-3';
+                            placeholder.innerHTML = '<i class="bi bi-hourglass-split"></i> No Bridge response yet';
+                            bridgeContent.appendChild(placeholder);
+                        }
+                        
+                        // Baseline response
+                        if (turn.baseline_response) {
+                            const baselineMsg = createAIMessage(
+                                marked.parse(turn.baseline_response.content),
+                                null,
+                                'ai',
+                                true
+                            );
+                            baselineContent.appendChild(baselineMsg);
+                        } else if (turn.user_message) {
+                            // Add placeholder for missing baseline response
+                            const placeholder = document.createElement('div');
+                            placeholder.className = 'text-center text-muted mt-3 mb-3';
+                            placeholder.innerHTML = '<i class="bi bi-hourglass-split"></i> No Baseline response yet';
+                            baselineContent.appendChild(placeholder);
                         }
                     });
+                    
+                    // Set header state
+                    if (hasMessages) {
+                        collapseHeader();
+                        hasMessages = true;
+                    } else {
+                        expandHeader();
+                        hasMessages = false;
+                    }
                 } else {
-                    // No messages, show placeholder
-                    initializeComparisonColumns();
+                    // No turns, show placeholder
+                    bridgeContent.innerHTML = `
+                        <div class="text-center text-muted mt-5">
+                            <i class="bi bi-robot display-6 mb-3 d-block text-primary"></i>
+                            <p>Enhanced with research-based prompts</p>
+                            <small class="d-block">Uses our 3 hypotheses to improve communication</small>
+                        </div>
+                    `;
+                    
+                    baselineContent.innerHTML = `
+                        <div class="text-center text-muted mt-5">
+                            <i class="bi bi-cpu display-6 mb-3 d-block text-success"></i>
+                            <p>Raw model without prompt engineering</p>
+                            <small class="d-block">Standard DeepSeek response for comparison</small>
+                        </div>
+                    `;
+                    
+                    expandHeader();
+                    hasMessages = false;
                 }
                 
                 scrollToBottom();
             }
         } catch (error) {
-            console.error('Error loading comparison messages:', error);
-            alert('Failed to load comparison messages.');
+            console.error('Error loading comparison session:', error);
+            // If the comparison endpoint fails, try the regular messages endpoint
+            await loadSessionMessages(sessionId);
         }
     }
 
-    // Load a specific session (for comparison)
-    async function loadSession(sessionId) {
+    // Load session messages (fallback)
+    async function loadSessionMessages(sessionId) {
         try {
             const response = await fetch(`/sessions/messages/?session_id=${sessionId}&session_key=${getSessionKey()}`);
             const data = await response.json();
@@ -354,28 +396,171 @@
             if (data.success) {
                 currentSessionId = sessionId;
                 
-                // Update mode if needed
-                if (data.session.mode !== currentMode) {
-                    currentMode = data.session.mode;
-                    updateModeUI();
-                    return;
+                const bridgeContent = document.getElementById('bridgeChatContent');
+                const baselineContent = document.getElementById('baselineChatContent');
+                
+                // Clear columns
+                bridgeContent.innerHTML = '';
+                baselineContent.innerHTML = '';
+                
+                if (data.messages && data.messages.length > 0) {
+                    // Group messages by user-bridge-baseline pattern
+                    let currentUserMessage = null;
+                    let currentBridgeResponse = null;
+                    let currentBaselineResponse = null;
+                    
+                    data.messages.forEach(msg => {
+                        if (msg.role === 'user') {
+                            // If we have a complete group, display it
+                            if (currentUserMessage) {
+                                const userMsg = createUserMessage(currentUserMessage.content);
+                                bridgeContent.appendChild(userMsg.cloneNode(true));
+                                baselineContent.appendChild(userMsg.cloneNode(true));
+                                
+                                if (currentBridgeResponse) {
+                                    const bridgeMsg = createAIMessage(
+                                        marked.parse(currentBridgeResponse.content),
+                                        currentBridgeResponse.thinking ? marked.parse(currentBridgeResponse.thinking) : null,
+                                        'ai',
+                                        false
+                                    );
+                                    bridgeContent.appendChild(bridgeMsg);
+                                }
+                                
+                                if (currentBaselineResponse) {
+                                    const baselineMsg = createAIMessage(
+                                        marked.parse(currentBaselineResponse.content),
+                                        null,
+                                        'ai',
+                                        true
+                                    );
+                                    baselineContent.appendChild(baselineMsg);
+                                }
+                            }
+                            
+                            // Start new group
+                            currentUserMessage = msg;
+                            currentBridgeResponse = null;
+                            currentBaselineResponse = null;
+                        } else if (msg.role === 'assistant') {
+                            // Check message type to determine which column it belongs to
+                            if (msg.message_type === 'bridge' || !msg.message_type) {
+                                currentBridgeResponse = msg;
+                            } else if (msg.message_type === 'baseline') {
+                                currentBaselineResponse = msg;
+                            }
+                        }
+                    });
+                    
+                    // Display the last group if exists
+                    if (currentUserMessage) {
+                        const userMsg = createUserMessage(currentUserMessage.content);
+                        bridgeContent.appendChild(userMsg.cloneNode(true));
+                        baselineContent.appendChild(userMsg.cloneNode(true));
+                        
+                        if (currentBridgeResponse) {
+                            const bridgeMsg = createAIMessage(
+                                marked.parse(currentBridgeResponse.content),
+                                currentBridgeResponse.thinking ? marked.parse(currentBridgeResponse.thinking) : null,
+                                'ai',
+                                false
+                            );
+                            bridgeContent.appendChild(bridgeMsg);
+                        }
+                        
+                        if (currentBaselineResponse) {
+                            const baselineMsg = createAIMessage(
+                                marked.parse(currentBaselineResponse.content),
+                                null,
+                                'ai',
+                                true
+                            );
+                            baselineContent.appendChild(baselineMsg);
+                        }
+                    }
+                    
+                    // Set header state
+                    collapseHeader();
+                    hasMessages = true;
+                } else {
+                    // No messages, show placeholder
+                    bridgeContent.innerHTML = `
+                        <div class="text-center text-muted mt-5">
+                            <i class="bi bi-robot display-6 mb-3 d-block text-primary"></i>
+                            <p>Enhanced with research-based prompts</p>
+                            <small class="d-block">Uses our 3 hypotheses to improve communication</small>
+                        </div>
+                    `;
+                    
+                    baselineContent.innerHTML = `
+                        <div class="text-center text-muted mt-5">
+                            <i class="bi bi-cpu display-6 mb-3 d-block text-success"></i>
+                            <p>Raw model without prompt engineering</p>
+                            <small class="d-block">Standard DeepSeek response for comparison</small>
+                        </div>
+                    `;
+                    
+                    expandHeader();
+                    hasMessages = false;
                 }
                 
-                // Clear comparison columns
-                clearComparisonColumns();
-                
-                // Load comparison messages
-                await loadComparisonMessages(sessionId, data.messages);
-                
                 scrollToBottom();
-                renderSessionsList();
-            } else {
-                console.error('Failed to load session:', data.error);
             }
         } catch (error) {
-            console.error('Error loading session:', error);
-            alert('Failed to load session. Please try again.');
+            console.error('Error loading session messages:', error);
+            alert('Failed to load session messages. Please try again.');
         }
+    }
+
+    // Override the renderSessionsList from base.html for comparison mode
+    function renderSessionsList() {
+        const container = document.getElementById('sessionsList');
+        const sessionList = sessions[currentMode] || [];
+        
+        if (sessionList.length === 0) {
+            container.innerHTML = `
+                <div class="text-center text-muted mt-5">
+                    <i class="bi bi-chat-dots display-6 mb-3 d-block"></i>
+                    <p>No comparison sessions yet</p>
+                    <button class="btn btn-outline-primary btn-sm" onclick="createNewSession()">
+                        Start a new comparison
+                    </button>
+                </div>
+            `;
+            document.getElementById('sessionCount').textContent = '0 comparisons';
+            return;
+        }
+        
+        let html = '';
+        sessionList.forEach(session => {
+            const isActive = currentSessionId === session.id;
+            const timeAgo = formatTimeAgo(session.updated_at);
+            const sessionType = session.is_comparison ? '<span class="badge bg-success badge-sm ms-1">Compare</span>' : '';
+            
+            html += `
+                <div class="session-item ${isActive ? 'active' : ''}" onclick="loadComparisonSession('${session.id}')">
+                    <button class="delete-session" onclick="deleteSession('${session.id}', event)">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                    <div class="session-title">${escapeHtml(session.title)} ${sessionType}</div>
+                    <div class="session-preview">${escapeHtml(session.last_preview)}</div>
+                    <div class="session-meta">
+                        <span>${session.message_count} messages</span>
+                        <span>${timeAgo}</span>
+                    </div>
+                </div>
+            `;
+        });
+        
+        container.innerHTML = html;
+        document.getElementById('sessionCount').textContent = `${sessionList.length} comparison${sessionList.length !== 1 ? 's' : ''}`;
+    }
+
+    // Load a specific session - OVERRIDDEN for comparison mode
+    async function loadSession(sessionId) {
+        // This function is called when clicking on a session in the sidebar
+        // We'll use loadComparisonSession instead
+        await loadComparisonSession(sessionId);
     }
 
     // Send message - always comparison mode
@@ -437,22 +622,27 @@
         isStreaming = true;
         
         try {
-            // Get the last user message ID
-            const userMessageId = await getLastUserMessageId(currentSessionId);
+            // Step 1: Start a new comparison turn (saves user message)
+            const turnData = await startComparisonTurn(message);
+            if (!turnData) {
+                throw new Error('Failed to start comparison turn');
+            }
             
-            // Create streaming containers for both responses
-            const bridgeMessageId = `bridge-msg-${Date.now()}`;
-            const baselineMessageId = `baseline-msg-${Date.now()}`;
+            const { turn_id, user_message_id, turn_number } = turnData;
+            
+            // Step 2: Create streaming containers for both responses
+            const bridgeMessageId = `bridge-${turn_number}-${Date.now()}`;
+            const baselineMessageId = `baseline-${turn_number}-${Date.now()}`;
             
             createComparisonStreamingContainer(bridgeMessageId, false);
             createComparisonStreamingContainer(baselineMessageId, true);
             
             scrollToBottom();
             
-            // Send both requests in parallel
+            // Step 3: Send both requests in parallel
             await Promise.all([
-                processBridgeStream(message, bridgeMessageId, currentSessionId, true, userMessageId),
-                processBaselineStream(message, baselineMessageId, currentSessionId, userMessageId)
+                processBridgeStream(message, bridgeMessageId, currentSessionId, turn_id),
+                processBaselineStream(message, baselineMessageId, currentSessionId, turn_id)
             ]);
             
         } catch (error) {
@@ -463,20 +653,42 @@
         }
     }
 
-    // Get the last user message ID
-    async function getLastUserMessageId(sessionId) {
+    // Start a new comparison turn
+    async function startComparisonTurn(message) {
         try {
-            const response = await fetch(`/sessions/last_user_message/?session_id=${sessionId}&session_key=${getSessionKey()}`);
+            const response = await fetch('/sessions/start_comparison_turn/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrftoken
+                },
+                body: JSON.stringify({
+                    message: message,
+                    mode: currentMode,
+                    session_id: currentSessionId,
+                    session_key: getSessionKey()
+                })
+            });
+            
             const data = await response.json();
-            return data.success ? data.message_id : null;
+            if (data.success) {
+                return {
+                    turn_id: data.turn_id,
+                    user_message_id: data.user_message_id,
+                    turn_number: data.turn_number
+                };
+            } else {
+                console.error('Failed to start comparison turn:', data.error);
+                return null;
+            }
         } catch (error) {
-            console.error('Error getting last user message:', error);
+            console.error('Error starting comparison turn:', error);
             return null;
         }
     }
 
     // Process Bridge stream (with prompt engineering) for comparison
-    async function processBridgeStream(message, messageId, sessionId = null, isComparison = false, userMessageId = null) {
+    async function processBridgeStream(message, messageId, sessionId, turnId) {
         const thinkingContainer = document.getElementById(`${messageId}-thinking-content`);
         const contentContainer = document.getElementById(`${messageId}-content`);
         const statusBadge = document.getElementById(messageId)?.querySelector('.status-badge');
@@ -499,8 +711,7 @@
                     session_id: sessionId,
                     session_key: getSessionKey(),
                     show_thinking: showThinking,
-                    is_comparison: true,
-                    user_message_id: userMessageId
+                    turn_id: turnId
                 })
             });
             
@@ -508,7 +719,7 @@
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
             
-            await processStreamResponse(response, messageId, thinkingContainer, contentContainer, statusBadge, false);
+            await processComparisonStreamResponse(response, messageId, thinkingContainer, contentContainer, statusBadge, false);
             
         } catch (error) {
             console.error('Bridge stream error:', error);
@@ -524,7 +735,7 @@
     }
 
     // Process Baseline stream (without prompt engineering)
-    async function processBaselineStream(message, messageId, sessionId = null, userMessageId = null) {
+    async function processBaselineStream(message, messageId, sessionId, turnId) {
         const contentContainer = document.getElementById(`${messageId}-content`);
         const statusBadge = document.getElementById(messageId)?.querySelector('.status-badge');
         
@@ -545,7 +756,7 @@
                     mode: currentMode,
                     session_id: sessionId,
                     session_key: getSessionKey(),
-                    user_message_id: userMessageId
+                    turn_id: turnId
                 })
             });
             
@@ -553,7 +764,7 @@
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
             
-            await processStreamResponse(response, messageId, null, contentContainer, statusBadge, true);
+            await processComparisonStreamResponse(response, messageId, null, contentContainer, statusBadge, true);
             
         } catch (error) {
             console.error('Baseline stream error:', error);
@@ -569,13 +780,14 @@
     }
 
     // Generic stream response processor for comparison
-    async function processStreamResponse(response, messageId, thinkingContainer, contentContainer, statusBadge, isBaseline = false) {
+    async function processComparisonStreamResponse(response, messageId, thinkingContainer, contentContainer, statusBadge, isBaseline = false) {
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         
         let buffer = '';
         let thinkingText = '';
         let responseText = '';
+        let receivedDone = false;  // Track if we received the 'done' event
         
         try {
             while (true) {
@@ -657,9 +869,15 @@
                                     break;
                                     
                                 case 'done':
+                                    receivedDone = true;
                                     if (statusBadge) {
                                         statusBadge.className = 'status-badge status-complete';
                                         statusBadge.textContent = 'Complete';
+                                    }
+                                    
+                                    // Remove cursor from content
+                                    if (contentContainer) {
+                                        contentContainer.classList.remove('streaming-cursor');
                                     }
                                     
                                     // Update sessions after streaming is complete
@@ -680,6 +898,17 @@
                 scrollToBottom();
             }
         } finally {
+            // Ensure status badge is set to complete even if stream ends unexpectedly
+            if (!receivedDone && statusBadge) {
+                statusBadge.className = 'status-badge status-complete';
+                statusBadge.textContent = 'Complete';
+            }
+            
+            // Remove cursor
+            if (contentContainer) {
+                contentContainer.classList.remove('streaming-cursor');
+            }
+            
             scrollToBottom();
         }
     }
@@ -687,9 +916,6 @@
 {% endblock %}
 
 {% block page_init %}
-// Initialize comparison columns
-initializeComparisonColumns();
-
 // Set up comparison specific event listeners
 document.getElementById('sendBtn').addEventListener('click', () => sendMessage());
 
@@ -701,10 +927,54 @@ document.getElementById('messageInput').addEventListener('keypress', function(e)
     }
 });
 
+// Override the renderSessionsList from base.html for comparison mode
+function renderSessionsList() {
+    const container = document.getElementById('sessionsList');
+    const sessionList = sessions[currentMode] || [];
+    
+    if (sessionList.length === 0) {
+        container.innerHTML = `
+            <div class="text-center text-muted mt-5">
+                <i class="bi bi-chat-dots display-6 mb-3 d-block"></i>
+                <p>No comparison sessions yet</p>
+                <button class="btn btn-outline-primary btn-sm" onclick="createNewSession()">
+                    Start a new comparison
+                </button>
+            </div>
+        `;
+        document.getElementById('sessionCount').textContent = '0 comparisons';
+        return;
+    }
+    
+    let html = '';
+    sessionList.forEach(session => {
+        const isActive = currentSessionId === session.id;
+        const timeAgo = formatTimeAgo(session.updated_at);
+        const sessionType = session.is_comparison ? '<span class="badge bg-success badge-sm ms-1">Compare</span>' : '';
+        
+        html += `
+            <div class="session-item ${isActive ? 'active' : ''}" onclick="loadComparisonSession('${session.id}')">
+                <button class="delete-session" onclick="deleteSession('${session.id}', event)">
+                    <i class="bi bi-trash"></i>
+                </button>
+                <div class="session-title">${escapeHtml(session.title)} ${sessionType}</div>
+                <div class="session-preview">${escapeHtml(session.last_preview)}</div>
+                <div class="session-meta">
+                    <span>${session.message_count} messages</span>
+                    <span>${timeAgo}</span>
+                </div>
+            </div>
+        `;
+    });
+    
+    container.innerHTML = html;
+    document.getElementById('sessionCount').textContent = `${sessionList.length} comparison${sessionList.length !== 1 ? 's' : ''}`;
+}
+
 // Load only comparison sessions for this mode
 async function loadSessions() {
     try {
-        const response = await fetch(`/sessions/?session_key=${getSessionKey()}&mode=${currentMode}&is_comparison=true`);
+        const response = await fetch(`/sessions/?session_key=${getSessionKey()}&mode=${currentMode}&session_type=comparison`);
         const data = await response.json();
         
         if (data.success) {
@@ -716,7 +986,28 @@ async function loadSessions() {
                 // Already loaded
             } else if (data.sessions.length > 0) {
                 // Load the most recent session for this mode
-                await loadSession(data.sessions[0].id);
+                await loadComparisonSession(data.sessions[0].id);
+            } else {
+                // No sessions, show initial state
+                clearComparisonColumns();
+                const bridgeContent = document.getElementById('bridgeChatContent');
+                const baselineContent = document.getElementById('baselineChatContent');
+                
+                bridgeContent.innerHTML = `
+                    <div class="text-center text-muted mt-5">
+                        <i class="bi bi-robot display-6 mb-3 d-block text-primary"></i>
+                        <p>Enhanced with research-based prompts</p>
+                        <small class="d-block">Uses our 3 hypotheses to improve communication</small>
+                    </div>
+                `;
+                
+                baselineContent.innerHTML = `
+                    <div class="text-center text-muted mt-5">
+                        <i class="bi bi-cpu display-6 mb-3 d-block text-success"></i>
+                        <p>Raw model without prompt engineering</p>
+                        <small class="d-block">Standard DeepSeek response for comparison</small>
+                    </div>
+                `;
             }
         }
     } catch (error) {
