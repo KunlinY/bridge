@@ -19,9 +19,9 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
-    path('', views.home, name='home'),
-    path('compare', views.compare, name='compare'),
-    path('single', views.single, name='single'),
+    path('', views.bridge, name='home'),
+    # path('compare', views.compare, name='compare'),
+    # path('single', views.single, name='single'),
     path('bridge', views.bridge, name='bridge'),
     path('baseline', views.baseline, name='baseline'),
     

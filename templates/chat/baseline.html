@@ -63,17 +63,17 @@
                 </div>
             </div>
             
-            <!-- Baseline (raw DeepSeek) -->
+            <!-- Baseline (raw OpenAI) -->
             <div class="chat-column baseline-column">
                 <div class="chat-column-header">
-                    <i class="bi bi-code-slash me-2"></i> DeepSeek Baseline
+                    <i class="bi bi-code-slash me-2"></i> OpenAI Baseline
                 </div>
                 <div class="chat-column-content" id="baselineChatContent">
                     <!-- Content will be loaded here -->
                     <div class="text-center text-muted mt-5">
                         <i class="bi bi-cpu display-6 mb-3 d-block text-success"></i>
                         <p>Raw model without prompt engineering</p>
-                        <small class="d-block">Standard DeepSeek response for comparison</small>
+                        <small class="d-block">Standard OpenAI response for comparison</small>
                     </div>
                 </div>
             </div>
@@ -104,7 +104,7 @@
         header.className = 'd-flex align-items-center mb-2';
         header.innerHTML = `
             <i class="bi ${isBaseline ? 'bi-cpu text-success' : 'bi-robot text-primary'} me-2"></i>
-            <strong>${isBaseline ? 'DeepSeek Baseline' : (type === 'system' ? 'Bridge' : 'Bridge Analysis')}</strong>
+            <strong>${isBaseline ? 'OpenAI Baseline' : (type === 'system' ? 'Bridge' : 'Bridge Analysis')}</strong>
         `;
         bubble.appendChild(header);
         
@@ -184,7 +184,7 @@
         header.className = 'd-flex align-items-center mb-2';
         header.innerHTML = `
             <i class="bi ${isBaseline ? 'bi-cpu text-success' : 'bi-robot text-primary'} me-2"></i>
-            <strong>${isBaseline ? 'DeepSeek Baseline' : 'Bridge Analysis'}</strong>
+            <strong>${isBaseline ? 'OpenAI Baseline' : 'Bridge Analysis'}</strong>
             <span class="status-badge status-thinking">Thinking</span>
         `;
         bubble.appendChild(header);
@@ -263,7 +263,7 @@
                     <div class="text-center text-muted mt-5">
                         <i class="bi bi-cpu display-6 mb-3 d-block text-success"></i>
                         <p>Raw model without prompt engineering</p>
-                        <small class="d-block">Standard DeepSeek response for comparison</small>
+                        <small class="d-block">Standard OpenAI response for comparison</small>
                     </div>
                 `;
                 
@@ -370,7 +370,7 @@
                         <div class="text-center text-muted mt-5">
                             <i class="bi bi-cpu display-6 mb-3 d-block text-success"></i>
                             <p>Raw model without prompt engineering</p>
-                            <small class="d-block">Standard DeepSeek response for comparison</small>
+                            <small class="d-block">Standard OpenAI response for comparison</small>
                         </div>
                     `;
                     
@@ -496,7 +496,7 @@
                         <div class="text-center text-muted mt-5">
                             <i class="bi bi-cpu display-6 mb-3 d-block text-success"></i>
                             <p>Raw model without prompt engineering</p>
-                            <small class="d-block">Standard DeepSeek response for comparison</small>
+                            <small class="d-block">Standard OpenAI response for comparison</small>
                         </div>
                     `;
                     
@@ -1005,7 +1005,7 @@ async function loadSessions() {
                     <div class="text-center text-muted mt-5">
                         <i class="bi bi-cpu display-6 mb-3 d-block text-success"></i>
                         <p>Raw model without prompt engineering</p>
-                        <small class="d-block">Standard DeepSeek response for comparison</small>
+                        <small class="d-block">Standard OpenAI response for comparison</small>
                     </div>
                 `;
             }
